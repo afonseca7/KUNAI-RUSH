@@ -37,7 +37,11 @@ Checks previos ejecutados sin errores:
 ### Amazon Appstore (`public/store-assets/platform-specific/amazon/`)
 - **APK**: `public/distribution/app-release.apk`
 - **Ícono 114×114**: `icon-114x114.png` (`114×114`, `13,492` bytes, `NEAREST`)
-- **Capturas (`400×800`)**: `01-menu-400x800.png`, `02-gameplay-400x800.png`, `03-shop-400x800.png`, `04-settings-400x800.png`
+- **Capturas (`480×800`, perfil alto `240×400 ×2`)**:
+  - `amazon-01-menu-480x800.png` (`480×800`, `87,709` bytes)
+  - `amazon-02-gameplay-480x800.png` (`480×800`, `95,214` bytes)
+  - `amazon-03-shop-480x800.png` (`480×800`, `88,562` bytes)
+  - `amazon-04-settings-480x800.png` (`480×800`, `78,962` bytes)
 - **Promo Video (opcional)**: `promo-video.mp4` (`1,011,374` bytes, `1280×720` H.264 + AAC con música `bgm_night.ogg` de Ninja Adventure)
 
 ### Samsung Galaxy Store (`public/store-assets/platform-specific/samsung/`)

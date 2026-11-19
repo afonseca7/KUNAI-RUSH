@@ -305,7 +305,6 @@ if os.path.isdir(SCREENSHOTS_SRC):
             if not os.path.exists(src_path):
                 continue
             shutil.copy2(src_path, os.path.join(itch_dir, itch_name))
-            shutil.copy2(src_path, os.path.join(amazon_dir, src_name))
             shutil.copy2(src_path, os.path.join(samsung_dir, src_name))
             zf.write(src_path, arcname=itch_name)
 

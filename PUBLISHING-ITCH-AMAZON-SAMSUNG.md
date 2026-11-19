@@ -71,11 +71,11 @@ Esta guía reemplaza la publicación en Google Play Store (evitando la tasa de \
 6. **Images & Multimedia**:
    - **Small App Icon (`114×114`)**: [`public/store-assets/platform-specific/amazon/icon-114x114.png`](public/store-assets/platform-specific/amazon/icon-114x114.png)
    - **Large App Icon (`512×512`)** *(si la consola lo solicita)*: [`public/store-assets/icon-512.png`](public/store-assets/icon-512.png)
-   - **Screenshots** (acepta hasta 8; sube las 4 actuales de [`public/store-assets/platform-specific/amazon/`](public/store-assets/platform-specific/amazon/)):
-     - `01-menu-400x800.png`
-     - `02-gameplay-400x800.png`
-     - `03-shop-400x800.png`
-     - `04-settings-400x800.png`
+   - **Screenshots (`480×800`, hasta 8; sube las 4 capturas específicas de [`public/store-assets/platform-specific/amazon/`](public/store-assets/platform-specific/amazon/))**:
+     - `amazon-01-menu-480x800.png`
+     - `amazon-02-gameplay-480x800.png`
+     - `amazon-03-shop-480x800.png`
+     - `amazon-04-settings-480x800.png`
    - **Promotional Video** *(opcional)*: [`public/store-assets/platform-specific/amazon/promo-video.mp4`](public/store-assets/platform-specific/amazon/promo-video.mp4) (`1280×720`, slideshow animado con audio CC0).
 7. **Content Rating & App Specifications**:
    - **Privacy Policy URL**: `https://afonseca7.github.io/KUNAI-RUSH/privacy.html`
