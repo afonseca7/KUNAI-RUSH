@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { computeViewportMetrics, type ViewportMetrics } from '../config/balance';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { audioService } from '../services/AudioService';
+import { hapticsService } from '../services/HapticsService';
 import {
   applyThemedLetterboxStyle,
   attachNocturnalAtmosphere,
@@ -286,6 +287,7 @@ export class PixelButton {
       this.labelText.setPosition(textX, this.baseLabelY);
       if (this.icon) this.icon.y = -1;
       audioService.playSfx('click');
+      hapticsService.light();
       this.onClickCb();
     });
 

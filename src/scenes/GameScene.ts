@@ -10,6 +10,7 @@ import {
 import { i18n } from '../config/i18n';
 import { BOSS_SKINS, getKunaiSkin, getTargetSkin } from '../config/skins';
 import { audioService } from '../services/AudioService';
+import { hapticsService } from '../services/HapticsService';
 import { saveService } from '../services/SaveService';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { CollectiblePool } from '../objects/CollectiblePool';
@@ -396,6 +397,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.lastStickAtMs = now;
     audioService.playSfx('thunk', this.comboCount);
+    hapticsService.light();
 
     const bonus = this.comboCount >= 3 ? 1 : 0;
     this.score += 1 + bonus;
@@ -467,6 +469,8 @@ export class GameScene extends Phaser.Scene {
 
     triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0x37b887, 0.38, 190);
     audioService.playSfx(this.currentSpec.isBoss ? 'boss' : 'levelup');
+    if (this.currentSpec.isBoss) hapticsService.heavy();
+    else hapticsService.medium();
     this.showAnnouncement(
       this.currentSpec.isBoss
         ? i18n.t('game.boss_clear', { coins: levelBonus })
@@ -493,6 +497,7 @@ export class GameScene extends Phaser.Scene {
     this.wheel.setRotationPaused(true);
     this.particleManager.emitMetalClang(this.wheel.x, impactY);
     audioService.playSfx('clang');
+    hapticsService.error();
     this.time.delayedCall(90, () => audioService.playSfx('fail'));
 
     triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0xd93644, 0.45, 210);
