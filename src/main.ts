@@ -5,6 +5,7 @@ import { GameOverScene } from './scenes/GameOverScene';
 import { GameScene } from './scenes/GameScene';
 import { MenuScene } from './scenes/MenuScene';
 import { PreloadScene } from './scenes/PreloadScene';
+import { ShopScene } from './scenes/ShopScene';
 
 const initialMetrics = computeViewportMetrics(window.innerWidth, window.innerHeight);
 
@@ -26,7 +27,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.NONE,
     autoCenter: Phaser.Scale.NO_CENTER
   },
-  scene: [BootScene, PreloadScene, MenuScene, GameScene, GameOverScene]
+  scene: [BootScene, PreloadScene, MenuScene, GameScene, GameOverScene, ShopScene]
 };
 
 new Phaser.Game(config);
