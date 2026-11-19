@@ -19,12 +19,21 @@ export class ParticleManager {
   private readonly vfxPool: Phaser.GameObjects.Sprite[] = [];
   private readonly popupPool: PixelText[] = [];
 
-  constructor(scene: Phaser.Scene, chipCapacity: number = 64, vfxCapacity: number = 8) {
+  constructor(
+    scene: Phaser.Scene,
+    chipCapacity: number = 64,
+    vfxCapacity: number = 8,
+    depthOffset: number = 0
+  ) {
     this.scene = scene;
 
     for (let i = 0; i < chipCapacity; i++) {
       const key = i % 2 === 0 ? EFFECTS_KEYS.PARTICLE_2PX : EFFECTS_KEYS.PARTICLE_1PX;
-      const img = scene.add.image(-200, -200, key).setOrigin(0.5).setVisible(false).setDepth(24);
+      const img = scene.add
+        .image(-200, -200, key)
+        .setOrigin(0.5)
+        .setVisible(false)
+        .setDepth(24 + depthOffset);
       this.chipPool.push(img);
     }
 
@@ -33,7 +42,7 @@ export class ParticleManager {
         .sprite(-200, -200, ASSET_KEYS.VFX_SMOKE, 0)
         .setOrigin(0.5)
         .setVisible(false)
-        .setDepth(26);
+        .setDepth(26 + depthOffset);
       sp.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
         if (!sp.scene) return;
         sp.setVisible(false).setPosition(-200, -200);
@@ -43,7 +52,7 @@ export class ParticleManager {
     }
 
     for (let i = 0; i < 6; i++) {
-      const pt = new PixelText(scene, -200, -200, '', { size: 8, depth: 36 }).setVisible(false);
+      const pt = new PixelText(scene, -200, -200, '', { size: 8, depth: 36 + depthOffset }).setVisible(false);
       this.popupPool.push(pt);
     }
   }
@@ -109,6 +118,25 @@ export class ParticleManager {
       );
     }
     this.playVfx('vfx_explosion_play', x, y, 0.95);
+  }
+
+  public emitConfetti(x: number, y: number): void {
+    const colors = [0x59f2e6, 0xffe073, 0xff9691, 0x45d68a, 0x9850eb, 0xffffff];
+    for (let i = 0; i < 28; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 110;
+      const color = colors[i % colors.length];
+      this.spawnChip(
+        x + (Math.random() - 0.5) * 14,
+        y + (Math.random() - 0.5) * 14,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed - 35,
+        140,
+        color,
+        520 + Math.random() * 260
+      );
+    }
+    this.playVfx('vfx_spark_play', x, y, 0.9);
   }
 
   public emitPopup(x: number, y: number, text: string, tint: number = 0x59f2e6): void {

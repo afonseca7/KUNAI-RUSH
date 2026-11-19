@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { LAYOUT_FRACTIONS } from '../config/balance';
 import { i18n } from '../config/i18n';
+import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { audioService } from '../services/AudioService';
 import { hapticsService } from '../services/HapticsService';
 import { saveService } from '../services/SaveService';
 import { adsManager } from '../services/ads/AdsManager';
+import { LuckySpinModal } from '../ui/LuckySpinModal';
 import {
   PixelButton,
   PixelText,
@@ -63,8 +65,9 @@ export class GameOverScene extends Phaser.Scene {
     this.coinBadge = createCoinBadge(this, w - 31, topY, save.coins, 30);
 
     // Summary 9-slice card
-    const cardY = fracY(this, 0.32);
-    createNineSlicePanel(this, w * 0.5, cardY, 154, 108, 'dark', 20);
+    const showSpinOffer = saveService.shouldShowPostGameOverSpinPrompt();
+    const cardY = fracY(this, showSpinOffer ? 0.285 : 0.32);
+    createNineSlicePanel(this, w * 0.5, cardY, 154, showSpinOffer ? 100 : 108, 'dark', 20);
 
     new PixelText(this, w * 0.5, cardY - 38, i18n.t('gameover.title'), {
       size: 16,
@@ -111,7 +114,7 @@ export class GameOverScene extends Phaser.Scene {
     );
 
     if (this.payload.runCoins > 0) {
-      this.doubleBtn = new PixelButton(this, w * 0.5, fracY(this, 0.555), {
+      this.doubleBtn = new PixelButton(this, w * 0.5, fracY(this, showSpinOffer ? 0.49 : 0.555), {
         width: 136,
         height: 22,
         label: i18n.t('gameover.double_coins'),
@@ -123,8 +126,27 @@ export class GameOverScene extends Phaser.Scene {
       });
     }
 
+    if (showSpinOffer) {
+      const spinY = fracY(this, this.payload.runCoins > 0 ? 0.575 : 0.545);
+      new PixelButton(this, w * 0.5, spinY, {
+        width: 136,
+        height: 22,
+        label: i18n.t('gameover.open_spin'),
+        fontSize: 8,
+        iconKey: ASSET_KEYS.UI_WHEEL_MINI,
+        depth: 25,
+        onClick: () => {
+          new LuckySpinModal(this, {
+            onRewardApplied: () => {
+              this.coinBadge.updateCoins(saveService.get().coins);
+            }
+          });
+        }
+      });
+    }
+
     // Retry button
-    this.retryBtn = new PixelButton(this, w * 0.5, fracY(this, 0.66), {
+    this.retryBtn = new PixelButton(this, w * 0.5, fracY(this, 0.67), {
       width: 126,
       height: 24,
       label: i18n.t('gameover.retry'),
@@ -161,12 +183,13 @@ export class GameOverScene extends Phaser.Scene {
       scale: metrics.scale,
       score: this.payload.score,
       level: this.payload.level,
-      runCoins: this.payload.runCoins
+      runCoins: this.payload.runCoins,
+      spinOfferShown: showSpinOffer
     };
   }
 
   public update(_time: number, delta: number): void {
-    this.backdrop.bgTile.tilePositionY -= Math.min(delta, 50) * 0.004;
+    this.backdrop.bgTile.tilePositionY -= Math.min(delta, 50) * 0.004 * this.backdrop.parallaxFactor;
   }
 
   private async handleDoubleCoins(): Promise<void> {

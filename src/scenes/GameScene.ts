@@ -82,6 +82,7 @@ export class GameScene extends Phaser.Scene {
   private isGameOver = false;
   private readyY = 0;
   private wheelCenterY = 0;
+  private runMultiplier = 1;
   private equippedKunaiId = 'kunai_iron';
   private equippedNinjaId = 'ninja_shadow';
 
@@ -98,6 +99,7 @@ export class GameScene extends Phaser.Scene {
     this.runCoins = data?.runCoins ?? 0;
     this.revivesUsed = data?.revivesUsed ?? 0;
     this.bossPhase = 1;
+    this.runMultiplier = 1;
     this.comboCount = 0;
     this.lastStickAtMs = 0;
     this.lastThrowAtMs = 0;
@@ -112,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     const save = saveService.get();
     this.equippedKunaiId = save.equippedKunai;
     this.equippedNinjaId = save.equippedNinja;
+    this.runMultiplier = saveService.consumeActiveMultiplier();
     const w = this.scale.width;
     const h = this.scale.height;
 
@@ -238,6 +241,16 @@ export class GameScene extends Phaser.Scene {
 
     // Right coin badge
     this.coinBadge = createCoinBadge(this, w - 31, hudY, totalCoins, 30);
+
+    // Active run multiplier badge from Lucky Spin
+    if (this.runMultiplier > 1) {
+      createNineSlicePanel(this, w * 0.5, fracY(this, 0.11), 82, 16, 'dark', 28);
+      new PixelText(this, w * 0.5, fracY(this, 0.11), i18n.t('game.mult_active', { mult: this.runMultiplier }), {
+        size: 8,
+        tint: 0x59f2e6,
+        depth: 29
+      });
+    }
 
     // Floating announcement banner
     this.bannerText = new PixelText(this, w * 0.5, fracY(this, 0.22), '', {
@@ -408,7 +421,7 @@ export class GameScene extends Phaser.Scene {
     hapticsService.light();
 
     const bonus = this.comboCount >= 3 ? 1 : 0;
-    this.score += 1 + bonus;
+    this.score += (1 + bonus) * this.runMultiplier;
     this.scoreText.setText(String(this.score));
 
     if (this.comboCount >= 3) {
@@ -429,7 +442,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleCoinCollected(wx: number, wy: number): void {
-    const gain = ECONOMY_CONFIG.COIN_PER_COLLECTIBLE;
+    const gain = ECONOMY_CONFIG.COIN_PER_COLLECTIBLE * this.runMultiplier;
     this.runCoins += gain;
     const total = saveService.addCoins(gain);
     this.coinBadge.updateCoins(total);
@@ -470,8 +483,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     const levelBonus =
-      ECONOMY_CONFIG.LEVEL_CLEAR_BASE_COINS +
-      (this.currentSpec.isBoss ? ECONOMY_CONFIG.BOSS_CLEAR_BONUS_COINS : 0);
+      (ECONOMY_CONFIG.LEVEL_CLEAR_BASE_COINS +
+        (this.currentSpec.isBoss ? ECONOMY_CONFIG.BOSS_CLEAR_BONUS_COINS : 0)) *
+      this.runMultiplier;
     this.runCoins += levelBonus;
     const total = saveService.addCoins(levelBonus);
     this.coinBadge.updateCoins(total);
@@ -728,6 +742,7 @@ export class GameScene extends Phaser.Scene {
       bossPhase: this.bossPhase,
       score: this.score,
       runCoins: this.runCoins,
+      activeMultiplier: this.runMultiplier,
       kunaisLeft: this.kunaisLeftToThrow,
       stuckCount: this.kunaiPool.getStuckCount(),
       profile: metrics.profile,

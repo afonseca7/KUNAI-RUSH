@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { ADS_CADENCE_CONFIG } from '../../config/balance';
+import { ADS_CADENCE_CONFIG, LUCKY_SPIN_CONFIG } from '../../config/balance';
 import { saveService } from '../SaveService';
 import type {
   AdsQaTelemetry,
@@ -194,8 +194,23 @@ class AdsManagerImpl {
       rewardedDismissed: this.rewardedDismissed,
       appOpenShown: this.appOpenShown,
       appLaunchCount: save.appLaunchCount,
+      dailyAdSpinsUsed:
+        LUCKY_SPIN_CONFIG.MAX_DAILY_AD_SPINS - saveService.getRemainingDailyAdSpins(),
+      freeSpinReady: saveService.canUseFreeSpin(),
+      activeMultiplier: save.activeMultiplier,
+      pendingChests: save.pendingChests,
+      keysWhole: save.keysWhole,
+      keysFrac: save.keysFrac,
+      gold: save.gold,
+      inFlightKeyAmount: save.inFlightKeyAmount,
+      lastKeyFromAd: save.lastKeyFromAd,
       lastEvent: this.lastEvent
     };
+  }
+
+  public syncQaSnapshot(eventLabel?: string): void {
+    if (eventLabel) this.lastEvent = eventLabel;
+    this.publishQa();
   }
 
   private async runFullscreenWithBannerAutoHide<T>(task: () => Promise<T>): Promise<T> {

@@ -4,8 +4,10 @@ import { i18n } from '../config/i18n';
 import { getTargetSkin } from '../config/skins';
 import { saveService } from '../services/SaveService';
 import { adsManager } from '../services/ads/AdsManager';
+import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { TargetWheel } from '../objects/TargetWheel';
 import { DailyStreakModal } from '../ui/DailyStreakModal';
+import { LuckySpinModal } from '../ui/LuckySpinModal';
 import {
   PixelButton,
   PixelText,
@@ -25,6 +27,10 @@ export class MenuScene extends Phaser.Scene {
   private showcaseWheel!: TargetWheel;
   private mascot!: Phaser.GameObjects.Sprite;
   private coinBadge!: CoinBadgeRefs;
+  private spinWheelIcon?: Phaser.GameObjects.Image;
+  private spinBadgeLabel?: PixelText;
+  private multActiveText?: PixelText;
+  private activeModalOpen = false;
   private toastText?: PixelText;
 
   constructor() {
@@ -34,6 +40,7 @@ export class MenuScene extends Phaser.Scene {
   public create(): void {
     const save = saveService.get();
     const w = this.scale.width;
+    this.activeModalOpen = false;
 
     void adsManager.syncBannerForScene('MenuScene');
     this.backdrop = createSceneBackdrop(this);
@@ -86,6 +93,56 @@ export class MenuScene extends Phaser.Scene {
       tint: 0xd6e2f5,
       depth: 21
     });
+
+    // Active Multiplier HUD badge (earned via Lucky Spin)
+    this.multActiveText = new PixelText(
+      this,
+      w * 0.5,
+      fracY(this, 0.605),
+      save.activeMultiplier > 1 ? i18n.t('game.mult_active', { mult: save.activeMultiplier }) : '',
+      {
+        size: 8,
+        tint: 0x59f2e6,
+        depth: 22
+      }
+    ).setVisible(save.activeMultiplier > 1);
+
+    // Floating Lucky Spin button (right side of mascot)
+    const spinX = w - 26;
+    const spinY = fracY(this, 0.495);
+    const spinBtnContainer = this.add.container(spinX, spinY).setDepth(26);
+    const spinPanel = createNineSlicePanel(this, 0, 0, 34, 34, 'wood');
+    this.spinWheelIcon = this.add.image(0, -4, ASSET_KEYS.UI_WHEEL_MINI).setOrigin(0.5);
+    const isFreeSpin = saveService.canUseFreeSpin();
+    this.spinBadgeLabel = new PixelText(
+      this,
+      0,
+      11,
+      isFreeSpin ? i18n.t('menu.spin_free') : i18n.t('menu.spin_label'),
+      {
+        size: 8,
+        tint: isFreeSpin ? 0x9bf5c6 : 0xffe073
+      }
+    );
+    spinBtnContainer.add([spinPanel, this.spinWheelIcon]);
+    this.spinBadgeLabel.addToContainer(spinBtnContainer);
+    spinPanel.setInteractive({ useHandCursor: true });
+    spinPanel.on('pointerup', () => {
+      if (this.activeModalOpen) return;
+      this.openLuckySpinModal();
+    });
+
+    if (isFreeSpin) {
+      this.tweens.add({
+        targets: spinBtnContainer,
+        scaleX: 1.07,
+        scaleY: 1.07,
+        duration: 620,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
 
     // Primary PLAY button
     new PixelButton(this, w * 0.5, fracY(this, 0.665), {
@@ -145,6 +202,43 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
+    this.refreshMenuBadges();
+  }
+
+  public update(_time: number, delta: number): void {
+    const dt = Math.min(delta, 50);
+    this.backdrop.bgTile.tilePositionY -= dt * 0.005 * this.backdrop.parallaxFactor;
+    this.showcaseWheel.updateRotation(dt);
+    if (this.spinWheelIcon) {
+      this.spinWheelIcon.angle += dt * 0.045;
+    }
+  }
+
+  private openLuckySpinModal(): void {
+    this.activeModalOpen = true;
+    new LuckySpinModal(this, {
+      onRewardApplied: () => this.refreshMenuBadges(),
+      onClosed: () => {
+        this.activeModalOpen = false;
+        this.refreshMenuBadges();
+      }
+    });
+  }
+
+  private refreshMenuBadges(): void {
+    const next = saveService.get();
+    this.coinBadge.updateCoins(next.coins);
+    const isFree = saveService.canUseFreeSpin();
+    if (this.spinBadgeLabel) {
+      this.spinBadgeLabel
+        .setText(isFree ? i18n.t('menu.spin_free') : i18n.t('menu.spin_label'))
+        .setTint(isFree ? 0x9bf5c6 : 0xffe073);
+    }
+    if (this.multActiveText) {
+      this.multActiveText
+        .setText(next.activeMultiplier > 1 ? i18n.t('game.mult_active', { mult: next.activeMultiplier }) : '')
+        .setVisible(next.activeMultiplier > 1);
+    }
     const metrics = getViewportMetrics();
     (window as unknown as Record<string, unknown>).__KUNAI_STATE__ = {
       scene: 'MenuScene',
@@ -152,18 +246,17 @@ export class MenuScene extends Phaser.Scene {
       logicalW: metrics.logicalW,
       logicalH: metrics.logicalH,
       scale: metrics.scale,
-      coins: save.coins,
-      bestScore: save.bestScore,
-      equippedNinja: save.equippedNinja,
-      equippedKunai: save.equippedKunai,
-      equippedBackground: save.equippedBackground
+      coins: next.coins,
+      bestScore: next.bestScore,
+      equippedNinja: next.equippedNinja,
+      equippedKunai: next.equippedKunai,
+      equippedBackground: next.equippedBackground,
+      activeMultiplier: next.activeMultiplier,
+      pendingChests: next.pendingChests,
+      keysWhole: next.keysWhole,
+      keysFrac: next.keysFrac,
+      gold: next.gold
     };
-  }
-
-  public update(_time: number, delta: number): void {
-    const dt = Math.min(delta, 50);
-    this.backdrop.bgTile.tilePositionY -= dt * 0.005 * this.backdrop.parallaxFactor;
-    this.showcaseWheel.updateRotation(dt);
   }
 
   private showToast(msg: string): void {

@@ -1,6 +1,11 @@
 export type UmpConsentState = 'UNKNOWN' | 'OBTAINED' | 'NOT_REQUIRED' | 'FALLBACK_NPA';
 
-export type RewardedPlacement = 'revive' | 'double_coins' | 'shop_free_coins';
+export type RewardedPlacement =
+  | 'revive'
+  | 'double_coins'
+  | 'shop_free_coins'
+  | 'lucky_spin'
+  | 'open_chest';
 
 export interface AdsQaTelemetry {
   mode: 'native' | 'web_mock';
@@ -17,6 +22,15 @@ export interface AdsQaTelemetry {
   rewardedDismissed: number;
   appOpenShown: number;
   appLaunchCount: number;
+  dailyAdSpinsUsed: number;
+  freeSpinReady: boolean;
+  activeMultiplier: number;
+  pendingChests: number;
+  keysWhole: number;
+  keysFrac: number;
+  gold: number;
+  inFlightKeyAmount: number;
+  lastKeyFromAd: boolean;
   lastEvent: string;
 }
 
