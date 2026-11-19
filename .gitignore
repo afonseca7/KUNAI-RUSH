@@ -16,6 +16,8 @@ keystore.properties
 *.keystore
 *.p12
 local.properties
+public/distribution/*.apk
+public/distribution/*.aab
 android/.gradle/
 android/app/build/
 android/build/

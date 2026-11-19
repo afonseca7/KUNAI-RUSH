@@ -80,6 +80,31 @@ Before publishing to Play Console (never commit `.env` or secret IDs if private)
 2. Update `com.google.android.gms.ads.APPLICATION_ID` in `android/app/src/main/AndroidManifest.xml` to match your production AdMob App ID.
 3. Configure your GDPR / European Regulations message in the **AdMob Privacy & Messaging** console so `NativeAdMobAdapter` (UMP SDK) presents your live consent form automatically.
 
+### AdMob IDs de producción
+
+Sigue estos pasos en **[Google AdMob](https://admob.google.com)** para reemplazar los IDs de prueba cuando quieras monetizar con tráfico real (incluso distribuyendo por **itch.io**, **Amazon Appstore** y **Samsung Galaxy Store**):
+
+1. Inicia sesión en [https://admob.google.com](https://admob.google.com) con tu cuenta Google y entra en **Aplicaciones → Añadir aplicación**:
+   - Plataforma: **Android**.
+   - Si todavía no está en Play Store, elige **"No, todavía no figura en una tienda admitida"** (puedes vincular Amazon Appstore / Samsung Galaxy Store cuando se apruebe en esas tiendas) e introduce el nombre `Kunai Rush`.
+   - Copia el **ID de aplicación (`App ID`)** generado (`ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY`).
+2. Dentro de la app en AdMob, entra en **Bloques de anuncios → Añadir bloque de anuncios** y crea los 4 formatos exactamente usados por el juego:
+   - **Banner** (`bannerId`)
+   - **Intersticial** (`interstitialId`)
+   - **Bonificado / Rewarded** (`rewardedId`)
+   - **Inicio de aplicación / App Open** (`appOpenId`)
+3. Pega tus IDs reales en estos **3 lugares**:
+   - **Manifest Android**: reemplaza `android:value="ca-app-pub-3940256099942544~3347511713"` en [`android/app/src/main/AndroidManifest.xml`](android/app/src/main/AndroidManifest.xml) con tu `App ID` real.
+   - **Configuración JS/Vite**: crea `.env.production` en la raíz con `VITE_ADMOB_TEST_MODE=false` y las variables `VITE_ADMOB_*` (ver arriba), y cambia `PRODUCTION_READY = true` en [`src/config/adsConfig.ts`](src/config/adsConfig.ts) (o sustituye los valores por defecto ahí si prefieres no usar `.env`).
+   - **Raíz web `app-ads.txt`**: obtén tu `Publisher ID` (`pub-XXXXXXXXXXXXXXXX`) en **AdMob → Configuración → Información de la cuenta** y actualiza `app-ads.txt` en la raíz de `afonseca7/afonseca7.github.io` (`https://afonseca7.github.io/app-ads.txt`).
+4. Recompila el APK/AAB firmado con:
+   ```bash
+   npm run build
+   npx cap sync android
+   cd android
+   .\gradlew.bat assembleRelease bundleRelease
+   ```
+
 ---
 
 ## 5. Upload Keystore & Signed Release `.aab` Build

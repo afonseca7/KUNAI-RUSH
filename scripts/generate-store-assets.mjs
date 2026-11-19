@@ -19,12 +19,18 @@ fs.mkdirSync(OUT_STORE, { recursive: true });
 
 const pyScript = String.raw`
 import os
+import shutil
+import subprocess
+import tempfile
+import zipfile
 import xml.etree.ElementTree as ET
 from PIL import Image, ImageDraw
 
 ROOT = r'''${ROOT.replaceAll('\\', '\\\\')}'''
 ASSETS = os.path.join(ROOT, 'src', 'assets')
 OUT_STORE = os.path.join(ROOT, 'public', 'store-assets')
+PLATFORM_DIR = os.path.join(OUT_STORE, 'platform-specific')
+SCREENSHOTS_SRC = os.path.join(OUT_STORE, 'screenshots')
 RES_DIR = os.path.join(ROOT, 'android', 'app', 'src', 'main', 'res')
 
 def load_rgba(rel):
@@ -252,7 +258,134 @@ bg_xml_path = os.path.join(RES_DIR, 'values', 'ic_launcher_background.xml')
 with open(bg_xml_path, 'w', encoding='utf-8') as f:
     f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n  <color name="ic_launcher_background">#070912</color>\n</resources>\n')
 
-print('Generated store assets and Android launcher icons successfully.')
+# 4. Platform-specific distribution packages (itch.io, Amazon Appstore, Samsung Galaxy Store)
+itch_dir = os.path.join(PLATFORM_DIR, 'itch.io')
+amazon_dir = os.path.join(PLATFORM_DIR, 'amazon')
+samsung_dir = os.path.join(PLATFORM_DIR, 'samsung')
+for d in (itch_dir, amazon_dir, samsung_dir):
+    os.makedirs(d, exist_ok=True)
+
+# 4a. itch.io cover banner 630x500 (126x100 master scaled x5 NEAREST)
+itch_126 = build_nocturnal_bg(126, 100)
+k_down_20 = kunai_gold.transpose(Image.Transpose.ROTATE_180).resize((20, 20), Image.NEAREST)
+k_up_20 = kunai_gold.resize((20, 20), Image.NEAREST)
+k_right_20 = kunai_iron.transpose(Image.Transpose.ROTATE_270).resize((20, 20), Image.NEAREST)
+k_left_20 = kunai_jade.transpose(Image.Transpose.ROTATE_90).resize((20, 20), Image.NEAREST)
+target_36 = target.resize((36, 36), Image.NEAREST)
+ninja_24 = ninja_front.resize((24, 24), Image.NEAREST)
+
+# Wheel + ninja showcase centered cleanly below wood title plaque
+draw_nine_slice(itch_126, 'ui/panel_wood.png', 11, 5, 104, 30, inset=6)
+draw_bitmap_text(itch_126, 'KUNAI RUSH', 63, 15, 1, (255, 224, 115, 255))
+draw_bitmap_text(itch_126, 'NINJA NOCTURNO', 63, 23, 1, (89, 242, 230, 255))
+
+itch_126.paste(k_down_20, (53, 35), k_down_20)
+itch_126.paste(k_right_20, (31, 52), k_right_20)
+itch_126.paste(k_left_20, (75, 52), k_left_20)
+itch_126.paste(target_36, (45, 44), target_36)
+itch_126.paste(k_up_20, (53, 79), k_up_20)
+itch_126.paste(ninja_24, (14, 72), ninja_24)
+itch_126.paste(coin.resize((12, 12), Image.NEAREST), (96, 76), coin.resize((12, 12), Image.NEAREST))
+
+itch_banner = itch_126.resize((630, 500), Image.NEAREST)
+itch_banner.save(os.path.join(itch_dir, 'banner-630x500.png'))
+
+# 4a-bis. Screenshots for itch.io (renamed + zipped), Amazon, and Samsung
+shot_files = [
+    ('01-menu-400x800.png', '01-kunai-rush-menu-400x800.png'),
+    ('02-gameplay-400x800.png', '02-kunai-rush-gameplay-400x800.png'),
+    ('03-shop-400x800.png', '03-kunai-rush-shop-400x800.png'),
+    ('04-settings-400x800.png', '04-kunai-rush-settings-400x800.png'),
+]
+if os.path.isdir(SCREENSHOTS_SRC):
+    zip_path = os.path.join(itch_dir, 'screenshots-itch.zip')
+    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for src_name, itch_name in shot_files:
+            src_path = os.path.join(SCREENSHOTS_SRC, src_name)
+            if not os.path.exists(src_path):
+                continue
+            shutil.copy2(src_path, os.path.join(itch_dir, itch_name))
+            shutil.copy2(src_path, os.path.join(amazon_dir, src_name))
+            shutil.copy2(src_path, os.path.join(samsung_dir, src_name))
+            zf.write(src_path, arcname=itch_name)
+
+# 4b. Amazon Appstore icon-114x114.png + optional promo-video.mp4 slideshow
+icon_114 = icon_128.resize((114, 114), Image.NEAREST)
+icon_114.save(os.path.join(amazon_dir, 'icon-114x114.png'))
+
+# 4c. Samsung Galaxy Store reused 512x512 icon & 1024x500 feature graphic
+shutil.copy2(os.path.join(OUT_STORE, 'icon-512.png'), os.path.join(samsung_dir, 'icon-512x512.png'))
+shutil.copy2(os.path.join(OUT_STORE, 'feature-1024x500.png'), os.path.join(samsung_dir, 'feature-graphic-1024x500.png'))
+
+# 4d. Amazon promo-video.mp4 (1280x720 slideshow of the 4 screenshots + bgm_night.ogg)
+try:
+    import imageio_ffmpeg
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    bgm_path = os.path.join(ASSETS, 'audio', 'bgm_night.ogg')
+    if os.path.isdir(SCREENSHOTS_SRC) and os.path.exists(bgm_path):
+        captions = [
+            ('KUNAI RUSH', 'DOJO NOCTURNO PIXEL ART', 'DESAFIA TU PRECISION'),
+            ('LANZA Y CLAVA', '24 SLOTS GARANTIZADOS', 'JEFES CADA 5 NIVELES'),
+            ('TIENDA DEL DOJO', '8 KUNAIS + 4 DIANAS', 'DESBLOQUEA CON MONEDAS'),
+            ('100% PIXEL ART', 'ESPANOL E INGLES', 'OPTIMIZADO PARA ANDROID'),
+        ]
+        with tempfile.TemporaryDirectory() as tmpd:
+            slide_paths = []
+            for idx, ((src_name, _), (h1, h2, h3)) in enumerate(zip(shot_files, captions)):
+                src_path = os.path.join(SCREENSHOTS_SRC, src_name)
+                bg_small = build_nocturnal_bg(320, 180)
+                bg_1280 = bg_small.resize((1280, 720), Image.NEAREST)
+
+                # Right copy card
+                card_320 = Image.new('RGBA', (320, 180), (0, 0, 0, 0))
+                draw_nine_slice(card_320, 'ui/panel_wood.png', 132, 32, 168, 44, inset=6)
+                draw_bitmap_text(card_320, h1, 216, 48, 2, (255, 224, 115, 255))
+                draw_bitmap_text(card_320, h2, 216, 65, 1, (89, 242, 230, 255))
+                draw_nine_slice(card_320, 'ui/panel_dark.png', 132, 86, 168, 56, inset=4)
+                draw_bitmap_text(card_320, h3, 216, 114, 1, (244, 240, 232, 255))
+                card_320.paste(target.resize((32, 32), Image.NEAREST), (278, 138), target.resize((32, 32), Image.NEAREST))
+                card_320.paste(ninja_front.resize((24, 24), Image.NEAREST), (140, 144), ninja_front.resize((24, 24), Image.NEAREST))
+                card_1280 = card_320.resize((1280, 720), Image.NEAREST)
+                bg_1280.alpha_composite(card_1280)
+
+                # Left crisp portrait phone screenshot inside 1280x720 frame (scale 0.8x integer-preserving? Wait: 320x640 -> exact 400x800 * 0.8 or crop-fit? Keep 320x640 via NEAREST!)
+                shot_im = Image.open(src_path).convert('RGBA').resize((320, 640), Image.NEAREST)
+                frame = Image.new('RGBA', (336, 656), (240, 138, 75, 255))
+                frame.paste(shot_im, (8, 8))
+                bg_1280.paste(frame, (108, 32))
+
+                sp = os.path.join(tmpd, f'slide_{idx}.png')
+                bg_1280.convert('RGB').save(sp)
+                slide_paths.append(sp)
+
+            promo_out = os.path.join(amazon_dir, 'promo-video.mp4')
+            cmd = [
+                ffmpeg_exe, '-y',
+                '-loop', '1', '-t', '4', '-i', slide_paths[0],
+                '-loop', '1', '-t', '4', '-i', slide_paths[1],
+                '-loop', '1', '-t', '4', '-i', slide_paths[2],
+                '-loop', '1', '-t', '4.5', '-i', slide_paths[3],
+                '-stream_loop', '-1', '-t', '15', '-i', bgm_path,
+                '-filter_complex',
+                '[0:v]fps=30,format=yuv420p[v0];'
+                '[1:v]fps=30,format=yuv420p[v1];'
+                '[2:v]fps=30,format=yuv420p[v2];'
+                '[3:v]fps=30,format=yuv420p[v3];'
+                '[v0][v1]xfade=transition=fade:duration=0.5:offset=3.5[x01];'
+                '[x01][v2]xfade=transition=fade:duration=0.5:offset=7.0[x12];'
+                '[x12][v3]xfade=transition=fade:duration=0.5:offset=10.5,format=yuv420p[v];'
+                '[4:a]afade=t=in:st=0:d=0.4,afade=t=out:st=13.5:d=1.5[a]',
+                '-map', '[v]', '-map', '[a]',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
+                '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart',
+                promo_out
+            ]
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print('Generated Amazon promo-video.mp4 successfully.')
+except Exception as ex:
+    print('Skipped promo-video.mp4:', ex)
+
+print('Generated store assets, platform-specific packages, and Android launcher icons successfully.')
 `;
 
 execFileSync('python', ['-c', pyScript], { stdio: 'inherit' });
