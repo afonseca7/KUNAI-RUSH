@@ -98,6 +98,8 @@ export class GameScene extends Phaser.Scene {
     this.isPaused = false;
     this.isTransitioning = false;
     this.isGameOver = false;
+    this.remainingIcons = [];
+    this.pauseOverlay = undefined;
   }
 
   public create(): void {

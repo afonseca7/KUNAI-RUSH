@@ -192,6 +192,7 @@ export function createNineSlicePanel(
   variant: PanelVariant = 'dark',
   depth?: number
 ): Phaser.GameObjects.NineSlice {
+  const inset = variant === 'wood' ? 6 : 4;
   const panel = scene.add.nineslice(
     Math.round(x),
     Math.round(y),
@@ -199,10 +200,10 @@ export function createNineSlicePanel(
     undefined,
     Math.round(width),
     Math.round(height),
-    4,
-    4,
-    4,
-    4
+    inset,
+    inset,
+    inset,
+    inset
   );
   if (depth !== undefined) panel.setDepth(depth);
   return panel;

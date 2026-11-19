@@ -117,7 +117,10 @@ export class CollectiblePool {
   }
 
   private recycleSprite(sprite: Phaser.GameObjects.Sprite): void {
-    sprite.stop();
+    if (!sprite.scene) return;
+    if (sprite.anims) {
+      sprite.stop();
+    }
     sprite.setVisible(false).setPosition(-200, -200).setAngle(0).setAlpha(1).setScale(1);
     this.pool.push(sprite);
   }

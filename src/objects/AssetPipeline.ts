@@ -417,17 +417,16 @@ function clipCircleWithPixelOutline(
 }
 
 function bakeComposedTargets(scene: Phaser.Scene): void {
-  // 1. target_composed_log (48x48): tree stump texture outer bark + sphere_wood center + inner ring
+  // 1. target_composed_log (48x48): warm wood mosaic ring + tree stump + sphere_wood
   bakeTargetCanvas(scene, 'target_composed_log', 48, (ctx) => {
-    for (let ty = 0; ty < 48; ty += 32) {
-      for (let tx = 0; tx < 48; tx += 32) {
-        drawWholeTexture(ctx, scene, ASSET_KEYS.TREE_STUMP, tx - 4, ty - 4);
+    for (let ty = 0; ty < 3; ty++) {
+      for (let tx = 0; tx < 3; tx++) {
+        drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_KENNEY, 12 * 5 + 3, tx * 16, ty * 16);
       }
     }
+    drawWholeTexture(ctx, scene, ASSET_KEYS.TREE_STUMP, 8, 8);
     clipCircleWithPixelOutline(ctx, 48, 23.2, '#140c08', '#5e3922');
     drawWholeTexture(ctx, scene, ASSET_KEYS.SPHERE_WOOD, 8, 8);
-    // Center target seal: 16x16 wood emblem from TilesetNature
-    drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 8 + 8, 16, 16);
   });
 
   // 2. target_composed_stone (48x48): dungeon stone tiles + sphere_iron + steel shield emblem
@@ -570,13 +569,24 @@ function bakeNocturnalBackgroundPattern(scene: Phaser.Scene): void {
       drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_KENNEY, idx, col * 16, row * 16);
     }
   }
-  // Sprinkle bamboo & moss accents from TilesetNature
+  // Sprinkle bamboo & stone lantern accents from Ninja Adventure tilesets
   drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 8 + 10, 16, 16);
   drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 9 + 10, 16, 32);
   drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 8 + 11, 96, 64);
   drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 9 + 11, 96, 80);
   drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_ELEMENT, 16 * 3 + 6, 64, 96);
   drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_ELEMENT, 16 * 4 + 6, 64, 112);
+
+  // Nocturnal contrast pass so background tiles read as deep night dojo stone
+  const bgData = ctx.getImageData(0, 0, size, size);
+  const px = bgData.data;
+  for (let i = 0; i < px.length; i += 4) {
+    if (px[i + 3] === 0) continue;
+    px[i] = Math.round(px[i] * 0.34);
+    px[i + 1] = Math.round(px[i + 1] * 0.4);
+    px[i + 2] = Math.round(px[i + 2] * 0.58);
+  }
+  ctx.putImageData(bgData, 0, 0);
 
   canvasTex.refresh();
   canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
