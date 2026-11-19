@@ -80,7 +80,7 @@ export class DailyStreakModal {
         dy,
         62,
         28,
-        isCurrent ? 'bamboo' : isClaimed ? 'bgDark' : 'dark'
+        isCurrent ? 'wood' : isClaimed ? 'bgDark' : 'dark'
       );
       this.container.add(cell);
 

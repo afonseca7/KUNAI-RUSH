@@ -83,22 +83,22 @@ export class ShopScene extends Phaser.Scene {
     // Tabs row
     const tabY = fracY(this, 0.155);
     this.tabKunaisBg = this.add
-      .nineslice(Math.round(w * 0.5 - 39), tabY, ASSET_KEYS.UI_TAB_SELECTED, undefined, 72, 18, 4, 4, 3, 3)
+      .nineslice(Math.round(w * 0.5 - 39), tabY, ASSET_KEYS.UI_BTN_NORMAL, undefined, 72, 18, 4, 4, 2, 2)
       .setDepth(22)
       .setInteractive({ useHandCursor: true });
-    new PixelText(this, w * 0.5 - 39, tabY, i18n.t('shop.tab_kunais'), {
+    new PixelText(this, w * 0.5 - 39, tabY - 1, i18n.t('shop.tab_kunais'), {
       size: 8,
-      tint: 0xffffff,
+      tint: 0xf4f0e8,
       depth: 23
     });
 
     this.tabTargetsBg = this.add
-      .nineslice(Math.round(w * 0.5 + 39), tabY, ASSET_KEYS.UI_TAB_UNSELECTED, undefined, 72, 18, 4, 4, 3, 3)
+      .nineslice(Math.round(w * 0.5 + 39), tabY, ASSET_KEYS.UI_BTN_DISABLED, undefined, 72, 18, 4, 4, 2, 2)
       .setDepth(22)
       .setInteractive({ useHandCursor: true });
-    new PixelText(this, w * 0.5 + 39, tabY, i18n.t('shop.tab_targets'), {
+    new PixelText(this, w * 0.5 + 39, tabY - 1, i18n.t('shop.tab_targets'), {
       size: 8,
-      tint: 0xd6e2f5,
+      tint: 0xf4f0e8,
       depth: 23
     });
 
@@ -227,10 +227,10 @@ export class ShopScene extends Phaser.Scene {
     this.coinBadge.updateCoins(save.coins);
 
     this.tabKunaisBg.setTexture(
-      this.activeTab === 'kunais' ? ASSET_KEYS.UI_TAB_SELECTED : ASSET_KEYS.UI_TAB_UNSELECTED
+      this.activeTab === 'kunais' ? ASSET_KEYS.UI_BTN_NORMAL : ASSET_KEYS.UI_BTN_DISABLED
     );
     this.tabTargetsBg.setTexture(
-      this.activeTab === 'targets' ? ASSET_KEYS.UI_TAB_SELECTED : ASSET_KEYS.UI_TAB_UNSELECTED
+      this.activeTab === 'targets' ? ASSET_KEYS.UI_BTN_NORMAL : ASSET_KEYS.UI_BTN_DISABLED
     );
 
     const previewKunai = KUNAI_SKINS[this.kunaiCursor];

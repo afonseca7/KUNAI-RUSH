@@ -194,7 +194,7 @@ export function createNineSlicePanel(
   variant: PanelVariant = 'dark',
   depth?: number
 ): Phaser.GameObjects.NineSlice {
-  const inset = variant === 'wood' ? 6 : 4;
+  const inset = variant === 'wood' || variant === 'red' || variant === 'bamboo' ? 6 : 4;
   const panel = scene.add.nineslice(
     Math.round(x),
     Math.round(y),
@@ -305,7 +305,8 @@ export class PixelButton {
     this.isDisabled = disabled;
     this.isPressed = false;
     this.bg.setTexture(disabled ? ASSET_KEYS.UI_BTN_DISABLED : ASSET_KEYS.UI_BTN_NORMAL);
-    this.labelText.setTint(disabled ? 0x6f6770 : 0x261712);
+    this.labelText.setTint(disabled ? 0xd8cfc2 : 0x261712);
+    this.labelText.shadow.setTint(disabled ? 0x201815 : 0xf7e3c6);
     if (disabled) {
       this.bg.disableInteractive();
     } else {
