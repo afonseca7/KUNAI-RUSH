@@ -8,12 +8,13 @@ import {
   type LevelSpec
 } from '../config/balance';
 import { i18n } from '../config/i18n';
-import { BOSS_SKINS, getTargetSkin } from '../config/skins';
+import { BOSS_SKINS, getKunaiSkin, getTargetSkin } from '../config/skins';
 import { saveService } from '../services/SaveService';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { CollectiblePool } from '../objects/CollectiblePool';
 import { triggerScreenFlash } from '../objects/EffectsFactory';
 import { KunaiPool, planLevelSlots } from '../objects/KunaiPool';
+import { ParticleManager } from '../objects/ParticleManager';
 import { TargetWheel } from '../objects/TargetWheel';
 import {
   PixelButton,
@@ -40,6 +41,7 @@ export class GameScene extends Phaser.Scene {
   private wheel!: TargetWheel;
   private kunaiPool!: KunaiPool;
   private collectiblePool!: CollectiblePool;
+  private particleManager!: ParticleManager;
 
   private ninjaMascot!: Phaser.GameObjects.Sprite;
   private readyKunai!: Phaser.GameObjects.Image;
@@ -121,6 +123,7 @@ export class GameScene extends Phaser.Scene {
 
     this.kunaiPool = new KunaiPool(this, this.equippedKunaiId, 28);
     this.collectiblePool = new CollectiblePool(this, 8);
+    this.particleManager = new ParticleManager(this, 64, 8);
 
     // Ready kunai & animated ninja mascot at foot
     this.readyKunai = this.add
@@ -159,6 +162,7 @@ export class GameScene extends Phaser.Scene {
 
     const scaledDelta = clampedDelta * this.time.timeScale;
     this.kunaiPool.updateBouncing(scaledDelta);
+    this.particleManager.update(scaledDelta);
 
     if (!this.isGameOver) {
       this.wheel.updateRotation(scaledDelta);
@@ -376,6 +380,12 @@ export class GameScene extends Phaser.Scene {
     this.wheel.pulseImpact();
     this.wheel.flashImpactTint(0xfff0b3, 65);
 
+    const save = saveService.get();
+    const kSkin = getKunaiSkin(this.equippedKunaiId);
+    const tSkin = getTargetSkin(save.equippedTarget);
+    const impactY = this.wheel.y + this.wheel.getRadius() + 2;
+    this.particleManager.emitStickChips(this.wheel.x, impactY, tSkin.chipColor, kSkin.trailColor);
+
     const now = this.time.now;
     if (now - this.lastStickAtMs <= GAMEPLAY_CONFIG.COMBO_WINDOW_MS) {
       this.comboCount += 1;
@@ -389,7 +399,12 @@ export class GameScene extends Phaser.Scene {
     this.scoreText.setText(String(this.score));
 
     if (this.comboCount >= 3) {
-      this.showAnnouncement(i18n.t('game.combo', { combo: this.comboCount }), 0x59f2e6);
+      this.particleManager.emitPopup(
+        this.wheel.x,
+        impactY - 6,
+        i18n.t('game.combo', { combo: this.comboCount }),
+        0x59f2e6
+      );
     }
 
     this.kunaisStuckInWave += 1;
@@ -400,12 +415,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private handleCoinCollected(_wx: number, _wy: number): void {
+  private handleCoinCollected(wx: number, wy: number): void {
     const gain = ECONOMY_CONFIG.COIN_PER_COLLECTIBLE;
     this.runCoins += gain;
     const total = saveService.addCoins(gain);
     this.coinBadge.updateCoins(total);
-    this.showAnnouncement(`+${gain}`, 0xffe073);
+    this.particleManager.emitCoinSparkle(wx, wy);
   }
 
   private handleWaveCleared(): void {
@@ -413,6 +428,18 @@ export class GameScene extends Phaser.Scene {
     this.readyKunai.setVisible(false);
     this.kunaiPool.scatterStuckOnBreak(this.wheel);
     this.collectiblePool.clearAll(this.wheel);
+
+    const tSkin = getTargetSkin(saveService.get().equippedTarget);
+    const ringColor = this.currentSpec.isBoss
+      ? BOSS_SKINS[this.currentSpec.bossIndex].auraColor
+      : tSkin.ringColor;
+    this.particleManager.emitTargetBreak(
+      this.wheel.x,
+      this.wheel.y,
+      tSkin.chipColor,
+      ringColor,
+      this.currentSpec.isBoss
+    );
 
     if (this.currentSpec.isBoss && this.bossPhase < this.currentSpec.bossPhases) {
       this.bossPhase += 1;
@@ -458,16 +485,21 @@ export class GameScene extends Phaser.Scene {
     const impactY = this.wheel.y + this.wheel.getRadius() + 2;
     this.kunaiPool.spawnFailBounce(this.wheel.x, impactY);
     this.wheel.setRotationPaused(true);
+    this.particleManager.emitMetalClang(this.wheel.x, impactY);
 
     triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0xd93644, 0.45, 210);
     this.cameras.main.shake(180, 0.016);
 
-    // Hit-stop + Slow-mo bounce before Game Over
-    this.time.timeScale = GAMEPLAY_CONFIG.SLOW_MO_TIME_SCALE;
-    this.time.delayedCall(GAMEPLAY_CONFIG.HIT_STOP_MS + GAMEPLAY_CONFIG.SLOW_MO_DURATION_MS * 0.35, () => {
-      this.time.timeScale = 1;
+    // Hit-stop (80ms) + Slow-mo (0.4s) bounce before Game Over
+    this.time.timeScale = 0.05;
+    this.time.delayedCall(GAMEPLAY_CONFIG.HIT_STOP_MS * 0.05, () => {
       if (!this.scene.isActive()) return;
-      this.finishRunToGameOver();
+      this.time.timeScale = GAMEPLAY_CONFIG.SLOW_MO_TIME_SCALE;
+      this.time.delayedCall(GAMEPLAY_CONFIG.SLOW_MO_DURATION_MS * GAMEPLAY_CONFIG.SLOW_MO_TIME_SCALE, () => {
+        this.time.timeScale = 1;
+        if (!this.scene.isActive()) return;
+        this.finishRunToGameOver();
+      });
     });
   }
 
@@ -579,6 +611,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.kunaiPool.destroy(this.wheel);
     this.collectiblePool.destroy(this.wheel);
+    this.particleManager.destroy();
   }
 
   private publishQaSnapshot(): void {
