@@ -6,6 +6,7 @@ import { EFFECTS_KEYS } from '../objects/EffectsFactory';
 import { audioService } from '../services/AudioService';
 import { hapticsService } from '../services/HapticsService';
 import { saveService } from '../services/SaveService';
+import { adsManager } from '../services/ads/AdsManager';
 import {
   PixelButton,
   PixelText,
@@ -28,6 +29,7 @@ export class SettingsScene extends Phaser.Scene {
     const save = saveService.get();
     const w = this.scale.width;
     this.activeModal = undefined;
+    void adsManager.syncBannerForScene('SettingsScene');
 
     this.backdrop = createSceneBackdrop(this);
 
@@ -113,16 +115,16 @@ export class SettingsScene extends Phaser.Scene {
       fontSize: 8,
       depth: 25,
       onClick: () => {
-        const cur = saveService.get();
+        const qa = adsManager.getTelemetry();
         const stats = i18n.t('qa.stats', {
-          ump: 'WEB_MOCK',
-          npa: 'FALSE',
-          banner: 'OFF',
-          launches: cur.appLaunchCount,
-          go: 0,
-          int: cur.adsCounters.interstitialShown,
-          rew: cur.adsCounters.rewardedShown,
-          open: cur.adsCounters.appOpenShown
+          ump: qa.umpState,
+          npa: qa.npa ? 'TRUE' : 'FALSE',
+          banner: qa.bannerVisible ? 'ON' : 'OFF',
+          launches: qa.appLaunchCount,
+          go: qa.sessionGameOvers,
+          int: qa.interstitialShown,
+          rew: qa.rewardedShown,
+          open: qa.appOpenShown
         });
         this.openTextModal(i18n.t('qa.title'), stats, 'dark');
       }

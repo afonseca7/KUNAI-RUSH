@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { ADS_CADENCE_CONFIG } from '../../config/balance';
 import { saveService } from '../SaveService';
 import type {
@@ -6,6 +7,8 @@ import type {
   RewardedPlacement,
   UmpConsentState
 } from './IAdsService';
+import { NativeAdMobAdapter } from './NativeAdMobAdapter';
+import { WebMockAdsAdapter } from './WebMockAdsAdapter';
 
 class NullAdsAdapter implements IAdsAdapter {
   public readonly mode = 'web_mock' as const;
@@ -26,7 +29,9 @@ class NullAdsAdapter implements IAdsAdapter {
 }
 
 class AdsManagerImpl {
-  private adapter: IAdsAdapter = new NullAdsAdapter();
+  private adapter: IAdsAdapter = Capacitor.isNativePlatform()
+    ? new NativeAdMobAdapter()
+    : new WebMockAdsAdapter();
   private initialized = false;
   private appOpenAttempted = false;
   private isFullscreenActive = false;
@@ -245,3 +250,4 @@ class AdsManagerImpl {
 }
 
 export const adsManager = new AdsManagerImpl();
+export { NullAdsAdapter };

@@ -3,6 +3,7 @@ import { LAYOUT_FRACTIONS } from '../config/balance';
 import { i18n } from '../config/i18n';
 import { getTargetSkin } from '../config/skins';
 import { saveService } from '../services/SaveService';
+import { adsManager } from '../services/ads/AdsManager';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { TargetWheel } from '../objects/TargetWheel';
 import { DailyStreakModal } from '../ui/DailyStreakModal';
@@ -35,6 +36,7 @@ export class MenuScene extends Phaser.Scene {
     const save = saveService.get();
     const w = this.scale.width;
 
+    void adsManager.syncBannerForScene('MenuScene');
     this.backdrop = createSceneBackdrop(this);
 
     // Top HUD row

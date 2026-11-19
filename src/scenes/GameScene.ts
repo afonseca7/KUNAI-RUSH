@@ -12,9 +12,10 @@ import { BOSS_SKINS, getKunaiSkin, getTargetSkin } from '../config/skins';
 import { audioService } from '../services/AudioService';
 import { hapticsService } from '../services/HapticsService';
 import { saveService } from '../services/SaveService';
+import { adsManager } from '../services/ads/AdsManager';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { CollectiblePool } from '../objects/CollectiblePool';
-import { triggerScreenFlash } from '../objects/EffectsFactory';
+import { EFFECTS_KEYS, triggerScreenFlash } from '../objects/EffectsFactory';
 import { KunaiPool, planLevelSlots } from '../objects/KunaiPool';
 import { ParticleManager } from '../objects/ParticleManager';
 import { TargetWheel } from '../objects/TargetWheel';
@@ -112,6 +113,7 @@ export class GameScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
 
+    void adsManager.syncBannerForScene('GameScene');
     this.backdrop = createSceneBackdrop(this);
 
     this.wheelCenterY = fracY(this, LAYOUT_FRACTIONS.TARGET_CENTER_Y);
@@ -511,9 +513,91 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(GAMEPLAY_CONFIG.SLOW_MO_DURATION_MS * GAMEPLAY_CONFIG.SLOW_MO_TIME_SCALE, () => {
         this.time.timeScale = 1;
         if (!this.scene.isActive()) return;
-        this.finishRunToGameOver();
+        if (this.revivesUsed < GAMEPLAY_CONFIG.MAX_REVIVES_PER_RUN) {
+          this.openReviveModal();
+        } else {
+          this.finishRunToGameOver();
+        }
       });
     });
+  }
+
+  private openReviveModal(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const modal = this.add.container(0, 0).setDepth(85);
+
+    const scrim = this.add
+      .image(w * 0.5, h * 0.5, EFFECTS_KEYS.FLASH_QUAD)
+      .setDisplaySize(w, h)
+      .setTint(0x05070e)
+      .setAlpha(0.76)
+      .setInteractive();
+    modal.add(scrim);
+
+    const cy = Math.round(h * 0.48);
+    const panel = createNineSlicePanel(this, w * 0.5, cy, 156, 126, 'dark');
+    modal.add(panel);
+
+    const title = new PixelText(this, w * 0.5, cy - 40, i18n.t('revive.title'), {
+      size: 16,
+      tint: 0xffe073
+    });
+    title.addToContainer(modal);
+
+    const sub = new PixelText(
+      this,
+      w * 0.5,
+      cy - 14,
+      i18n.t('revive.subtitle', { level: this.level }),
+      {
+        size: 8,
+        tint: 0x59f2e6,
+        maxWidth: 138
+      }
+    );
+    sub.addToContainer(modal);
+
+    const watchBtn = new PixelButton(this, w * 0.5, cy + 16, {
+      width: 128,
+      height: 24,
+      label: i18n.t('revive.watch_ad'),
+      fontSize: 8,
+      onClick: () => {
+        watchBtn.setDisabled(true);
+        skipBtn.setDisabled(true);
+        void adsManager.showRewarded('revive').then((rewarded) => {
+          if (!this.scene.isActive()) return;
+          modal.destroy();
+          if (rewarded) {
+            this.revivesUsed += 1;
+            this.isGameOver = false;
+            this.isTransitioning = false;
+            this.kunaisLeftToThrow = Math.max(1, this.kunaisLeftToThrow + 1);
+            this.refreshRemainingIcons();
+            this.readyKunai.setVisible(true);
+            this.wheel.setRotationPaused(false);
+            triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0x59f2e6, 0.3, 150);
+            this.publishQaSnapshot();
+          } else {
+            this.finishRunToGameOver();
+          }
+        });
+      }
+    });
+
+    const skipBtn = new PixelButton(this, w * 0.5, cy + 44, {
+      width: 114,
+      height: 20,
+      label: i18n.t('revive.skip'),
+      fontSize: 8,
+      onClick: () => {
+        modal.destroy();
+        this.finishRunToGameOver();
+      }
+    });
+
+    modal.add([watchBtn.container, skipBtn.container]);
   }
 
   private finishRunToGameOver(): void {

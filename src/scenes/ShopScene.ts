@@ -7,6 +7,7 @@ import { TargetWheel } from '../objects/TargetWheel';
 import { audioService } from '../services/AudioService';
 import { hapticsService } from '../services/HapticsService';
 import { saveService } from '../services/SaveService';
+import { adsManager } from '../services/ads/AdsManager';
 import {
   PixelButton,
   PixelText,
@@ -47,6 +48,7 @@ export class ShopScene extends Phaser.Scene {
     const save = saveService.get();
     const w = this.scale.width;
     this.previewKunais = [];
+    void adsManager.syncBannerForScene('ShopScene');
 
     this.kunaiCursor = Math.max(
       0,
@@ -324,11 +326,16 @@ export class ShopScene extends Phaser.Scene {
 
   private async handleFreeCoinsClick(): Promise<void> {
     if (saveService.getShopFreeCoinsRemainingSec() > 0) return;
-    // Rewarded Ad hook is wired in P3 (C20); in P2 grants directly cleanly
-    saveService.addCoins(ECONOMY_CONFIG.SHOP_FREE_COINS_REWARD);
-    saveService.markShopFreeCoinsClaimed();
-    audioService.playSfx('coin');
-    hapticsService.medium();
+    this.freeCoinsBtn.setDisabled(true);
+    const rewarded = await adsManager.showRewarded('shop_free_coins');
+    if (!this.scene.isActive()) return;
+
+    if (rewarded) {
+      saveService.addCoins(ECONOMY_CONFIG.SHOP_FREE_COINS_REWARD);
+      saveService.markShopFreeCoinsClaimed();
+      audioService.playSfx('coin');
+      hapticsService.medium();
+    }
     this.refreshShopView();
     this.refreshFreeCoinsButton();
   }

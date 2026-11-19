@@ -3,6 +3,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import Phaser from 'phaser';
 import { audioService } from '../services/AudioService';
 import { saveService } from '../services/SaveService';
+import { adsManager } from '../services/ads/AdsManager';
 import { applyViewportToGame, bindViewportResize } from '../ui/UITheme';
 
 export class BootScene extends Phaser.Scene {
@@ -28,6 +29,8 @@ export class BootScene extends Phaser.Scene {
 
     await saveService.init();
     audioService.bindGame(this.game);
+    await adsManager.init();
+    await adsManager.tryShowAppOpenAd();
     this.scene.start('PreloadScene');
   }
 }
