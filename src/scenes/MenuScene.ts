@@ -4,7 +4,6 @@ import { i18n } from '../config/i18n';
 import { getTargetSkin } from '../config/skins';
 import { saveService } from '../services/SaveService';
 import { adsManager } from '../services/ads/AdsManager';
-import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { TargetWheel } from '../objects/TargetWheel';
 import { DailyStreakModal } from '../ui/DailyStreakModal';
 import {
@@ -74,13 +73,13 @@ export class MenuScene extends Phaser.Scene {
     const k2 = this.add.image(0, -26, save.equippedKunai).setOrigin(0.5).setAngle(180);
     this.showcaseWheel.stuckLayer.add([k1, k2]);
 
-    // Animated Ninja Mascot at 1:1 16x16 texel density
+    // Animated Ninja Mascot at 1:1 16x16 texel density using equipped ninja skin
     const mascotY = fracY(this, 0.5);
     this.mascot = this.add
-      .sprite(Math.round(w * 0.5), mascotY, ASSET_KEYS.NINJA_SHEET, 0)
+      .sprite(Math.round(w * 0.5), mascotY, save.equippedNinja, 0)
       .setOrigin(0.5)
       .setDepth(15);
-    this.mascot.play('ninja_idle_front');
+    this.mascot.play(`${save.equippedNinja}_idle_front`);
 
     new PixelText(this, w * 0.5, fracY(this, 0.565), i18n.t('menu.best_score', { score: save.bestScore }), {
       size: 8,
@@ -154,13 +153,16 @@ export class MenuScene extends Phaser.Scene {
       logicalH: metrics.logicalH,
       scale: metrics.scale,
       coins: save.coins,
-      bestScore: save.bestScore
+      bestScore: save.bestScore,
+      equippedNinja: save.equippedNinja,
+      equippedKunai: save.equippedKunai,
+      equippedBackground: save.equippedBackground
     };
   }
 
   public update(_time: number, delta: number): void {
     const dt = Math.min(delta, 50);
-    this.backdrop.bgTile.tilePositionY -= dt * 0.005;
+    this.backdrop.bgTile.tilePositionY -= dt * 0.005 * this.backdrop.parallaxFactor;
     this.showcaseWheel.updateRotation(dt);
   }
 

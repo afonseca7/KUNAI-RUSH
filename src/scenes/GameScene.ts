@@ -83,6 +83,7 @@ export class GameScene extends Phaser.Scene {
   private readyY = 0;
   private wheelCenterY = 0;
   private equippedKunaiId = 'kunai_iron';
+  private equippedNinjaId = 'ninja_shadow';
 
   private boundBlurHandler?: () => void;
   private boundVisHandler?: () => void;
@@ -110,6 +111,7 @@ export class GameScene extends Phaser.Scene {
   public create(): void {
     const save = saveService.get();
     this.equippedKunaiId = save.equippedKunai;
+    this.equippedNinjaId = save.equippedNinja;
     const w = this.scale.width;
     const h = this.scale.height;
 
@@ -136,13 +138,17 @@ export class GameScene extends Phaser.Scene {
       .setDepth(14);
 
     this.ninjaMascot = this.add
-      .sprite(Math.round(w * 0.5), mascotY, ASSET_KEYS.NINJA_SHEET, 1)
+      .sprite(Math.round(w * 0.5), mascotY, this.equippedNinjaId, 1)
       .setOrigin(0.5)
       .setDepth(16);
-    this.ninjaMascot.play('ninja_idle_up');
+    this.ninjaMascot.play(`${this.equippedNinjaId}_idle_up`);
     this.ninjaMascot.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (anim: Phaser.Animations.Animation) => {
-      if (anim.key === 'ninja_throw_up' && this.ninjaMascot.active) {
-        this.ninjaMascot.play('ninja_idle_up');
+      if (
+        (anim.key === `${this.equippedNinjaId}_throw_up` || anim.key === `${this.equippedNinjaId}_win`) &&
+        this.ninjaMascot.active &&
+        !this.isGameOver
+      ) {
+        this.ninjaMascot.play(`${this.equippedNinjaId}_idle_up`);
       }
     });
 
@@ -160,7 +166,7 @@ export class GameScene extends Phaser.Scene {
     const clampedDelta = Math.min(delta, 50);
 
     // Subtle nocturnal parallax
-    this.backdrop.bgTile.tilePositionY -= clampedDelta * 0.008;
+    this.backdrop.bgTile.tilePositionY -= clampedDelta * 0.008 * this.backdrop.parallaxFactor;
 
     if (this.isPaused) return;
 
@@ -367,7 +373,7 @@ export class GameScene extends Phaser.Scene {
     this.refreshRemainingIcons();
 
     this.readyKunai.setVisible(this.kunaisLeftToThrow > 0);
-    this.ninjaMascot.play('ninja_throw_up');
+    this.ninjaMascot.play(`${this.equippedNinjaId}_throw_up`);
     audioService.playSfx('throw');
     this.kunaiPool.spawnFlying(this.wheel.x, this.readyY, 14);
   }
@@ -434,6 +440,7 @@ export class GameScene extends Phaser.Scene {
   private handleWaveCleared(): void {
     this.isTransitioning = true;
     this.readyKunai.setVisible(false);
+    this.ninjaMascot.play(`${this.equippedNinjaId}_win`);
     this.kunaiPool.scatterStuckOnBreak(this.wheel);
     this.collectiblePool.clearAll(this.wheel);
 
@@ -493,6 +500,7 @@ export class GameScene extends Phaser.Scene {
     this.isTransitioning = true;
     this.isGameOver = true;
     this.readyKunai.setVisible(false);
+    this.ninjaMascot.play(`${this.equippedNinjaId}_fail`);
 
     const impactY = this.wheel.y + this.wheel.getRadius() + 2;
     this.kunaiPool.spawnFailBounce(this.wheel.x, impactY);
@@ -576,6 +584,7 @@ export class GameScene extends Phaser.Scene {
             this.kunaisLeftToThrow = Math.max(1, this.kunaisLeftToThrow + 1);
             this.refreshRemainingIcons();
             this.readyKunai.setVisible(true);
+            this.ninjaMascot.play(`${this.equippedNinjaId}_idle_up`);
             this.wheel.setRotationPaused(false);
             triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0x59f2e6, 0.3, 150);
             this.publishQaSnapshot();

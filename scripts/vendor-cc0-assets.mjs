@@ -318,6 +318,21 @@ gc_16.save(os.path.join(OUT, 'ui', 'icon_coin.png'))
 heart_sheet = Image.open(os.path.join(NINJA, 'Ui/Receptacle/Heart.png')).convert('RGBA')
 heart_sheet.crop((0, 0, 16, 16)).save(os.path.join(OUT, 'ui', 'icon_heart.png'))
 
+# Treasure chests (16x16 closed/open), GoldKey (centered 16x16), BarGold (centered 16x16)
+chest_sheet = Image.open(os.path.join(NINJA, 'Items/Treasure/LittleTreasureChest.png')).convert('RGBA')
+chest_sheet.crop((0, 0, 16, 16)).save(os.path.join(OUT, 'ui', 'chest_closed.png'))
+chest_sheet.crop((16, 0, 32, 16)).save(os.path.join(OUT, 'ui', 'chest_open.png'))
+
+key_src = Image.open(os.path.join(NINJA, 'Items/Treasure/GoldKey.png')).convert('RGBA')
+key_16 = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+key_16.paste(key_src, ((16 - key_src.width) // 2, (16 - key_src.height) // 2))
+key_16.save(os.path.join(OUT, 'ui', 'icon_key.png'))
+
+gold_src = Image.open(os.path.join(NINJA, 'Items/Resource/BarGold.png')).convert('RGBA')
+gold_16 = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+gold_16.paste(gold_src, ((16 - gold_src.width) // 2, (16 - gold_src.height) // 2))
+gold_16.save(os.path.join(OUT, 'ui', 'icon_gold.png'))
+
 # 6. Audio (CC0 SFX & nocturnal BGM)
 audio_copies = [
     ('Audio/Sounds/Whoosh & Slash/Launch.wav', 'audio/sfx_throw.wav'),

@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
-import { BOSS_SKINS, KUNAI_SKINS, type KunaiPalette } from '../config/skins';
+import { LUCKY_SPIN_CONFIG } from '../config/balance';
+import {
+  BACKGROUND_SKINS,
+  BOSS_SKINS,
+  KUNAI_SKINS,
+  NINJA_SKINS,
+  type KunaiPalette,
+  type NinjaPalette
+} from '../config/skins';
 import { bakeProceduralEffects } from './EffectsFactory';
 
 // Static Vite URL imports for all vendored CC0 assets
@@ -56,6 +64,10 @@ import iconKunaiBadgeUrl from '../assets/ui/icon_kunai_badge.png';
 import iconMoneyBadgeUrl from '../assets/ui/icon_money_badge.png';
 import barUnderUrl from '../assets/ui/bar_under.png';
 import barProgressUrl from '../assets/ui/bar_progress.png';
+import chestClosedUrl from '../assets/ui/chest_closed.png';
+import chestOpenUrl from '../assets/ui/chest_open.png';
+import iconKeyUrl from '../assets/ui/icon_key.png';
+import iconGoldUrl from '../assets/ui/icon_gold.png';
 
 import sfxThrowUrl from '../assets/audio/sfx_throw.wav';
 import sfxThunkUrl from '../assets/audio/sfx_thunk.wav';
@@ -121,6 +133,13 @@ export const ASSET_KEYS = {
   UI_ICON_MONEY_BADGE: 'ui_icon_money_badge',
   UI_BAR_UNDER: 'ui_bar_under',
   UI_BAR_PROGRESS: 'ui_bar_progress',
+  UI_CHEST_CLOSED: 'ui_chest_closed',
+  UI_CHEST_OPEN: 'ui_chest_open',
+  UI_ICON_KEY: 'ui_icon_key',
+  UI_ICON_GOLD: 'ui_icon_gold',
+  UI_WHEEL_64: 'ui_lucky_wheel_64',
+  UI_WHEEL_MINI: 'ui_lucky_wheel_mini',
+  UI_WHEEL_POINTER: 'ui_wheel_pointer',
 
   BG_DOJO_PATTERN: 'bg_dojo_pattern',
 
@@ -212,6 +231,10 @@ export function queueAllGameAssets(scene: Phaser.Scene): void {
   scene.load.image(ASSET_KEYS.UI_ICON_MONEY_BADGE, iconMoneyBadgeUrl);
   scene.load.image(ASSET_KEYS.UI_BAR_UNDER, barUnderUrl);
   scene.load.image(ASSET_KEYS.UI_BAR_PROGRESS, barProgressUrl);
+  scene.load.image(ASSET_KEYS.UI_CHEST_CLOSED, chestClosedUrl);
+  scene.load.image(ASSET_KEYS.UI_CHEST_OPEN, chestOpenUrl);
+  scene.load.image(ASSET_KEYS.UI_ICON_KEY, iconKeyUrl);
+  scene.load.image(ASSET_KEYS.UI_ICON_GOLD, iconGoldUrl);
 
   // CC0 Audio SFX & Music
   scene.load.audio(ASSET_KEYS.SFX_THROW, sfxThrowUrl);
@@ -228,26 +251,19 @@ export function queueAllGameAssets(scene: Phaser.Scene): void {
 
 let assetsBaked = false;
 
-/**
- * Runs once inside PreloadScene.create():
- * - Forces NEAREST filtering across all loaded textures & BitmapFont
- * - Bakes 8 pixel-by-pixel palette-swapped kunais
- * - Composes 4 normal 48x48 targets and 3 boss 64x64 targets from CC0 pack assets
- * - Builds repeatable nocturnal dojo/bamboo background pattern from CC0 tiles
- * - Registers ninja, coin, and VFX animations
- * - Bakes procedural 1-2px juice / vignette textures
- */
 export function bakeAllRuntimeAssets(scene: Phaser.Scene): void {
   enforceNearestOnAllTextures(scene);
-  if (assetsBaked && scene.textures.exists(KUNAI_SKINS[0].id)) {
+  if (assetsBaked && scene.textures.exists(KUNAI_SKINS[0].id) && scene.textures.exists(ASSET_KEYS.UI_WHEEL_64)) {
     return;
   }
 
   bakeProceduralEffects(scene);
+  bakeNinjaPaletteSwaps(scene);
   bakeKunaiPaletteSwaps(scene);
   bakeComposedTargets(scene);
   bakeComposedBossTargets(scene);
-  bakeNocturnalBackgroundPattern(scene);
+  bakeAllBackgroundPatterns(scene);
+  bakeLuckyWheelTextures(scene);
   registerAnimations(scene);
   enforceNearestOnAllTextures(scene);
   assetsBaked = true;
@@ -267,6 +283,113 @@ function hexToRgb(hex: string): [number, number, number] {
   const clean = hex.replace('#', '');
   const num = parseInt(clean, 16);
   return [(num >> 16) & 0xff, (num >> 8) & 0xff, num & 0xff];
+}
+
+function intColorToRgb(color: number): [number, number, number] {
+  return [(color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff];
+}
+
+// Quantized original 6-color palette of vendored Ninja Adventure NinjaDark/SpriteSheet.png
+const NINJA_SRC_PALETTE: ReadonlyArray<[number, number, number]> = [
+  [20, 27, 27], // 0 outline
+  [59, 54, 67], // 1 hoodDark
+  [78, 72, 74], // 2 hoodMid
+  [95, 113, 96], // 3 hoodLight
+  [209, 75, 52], // 4 accentDark
+  [239, 145, 79] // 5 accentBright
+];
+
+function bakeNinjaPaletteSwaps(scene: Phaser.Scene): void {
+  const srcTex = scene.textures.get(ASSET_KEYS.NINJA_SHEET);
+  const srcImg = srcTex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const w = srcImg.width;
+  const h = srcImg.height;
+
+  const scratch = document.createElement('canvas');
+  scratch.width = w;
+  scratch.height = h;
+  const sctx = scratch.getContext('2d');
+  if (!sctx) return;
+  sctx.drawImage(srcImg, 0, 0);
+  const srcData = sctx.getImageData(0, 0, w, h).data;
+
+  for (const skin of NINJA_SKINS) {
+    if (scene.textures.exists(skin.id)) continue;
+    const canvasTex = scene.textures.createCanvas(skin.id, w, h);
+    if (!canvasTex) continue;
+    const ctx = canvasTex.getContext();
+    const out = ctx.createImageData(w, h);
+    remapNinjaPixels(srcData, out.data, w, h, skin.palette, Boolean(skin.isDefaultPalette));
+    ctx.putImageData(out, 0, 0);
+    canvasTex.refresh();
+    scene.textures.addSpriteSheet(skin.id, canvasTex, {
+      frameWidth: 16,
+      frameHeight: 16,
+      margin: 1,
+      spacing: 2
+    });
+    canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+}
+
+function remapNinjaPixels(
+  src: Uint8ClampedArray,
+  dst: Uint8ClampedArray,
+  w: number,
+  h: number,
+  palette: NinjaPalette,
+  keepOriginal: boolean
+): void {
+  const targets: ReadonlyArray<[number, number, number]> = [
+    hexToRgb(palette.outline),
+    hexToRgb(palette.hoodDark),
+    hexToRgb(palette.hoodMid),
+    hexToRgb(palette.hoodLight),
+    hexToRgb(palette.accentDark),
+    hexToRgb(palette.accentBright)
+  ];
+
+  const totalPixels = w * h;
+  for (let p = 0; p < totalPixels; p++) {
+    const i = p * 4;
+    const a = src[i + 3];
+    if (a < 128) {
+      dst[i + 3] = 0;
+      continue;
+    }
+
+    const r = src[i];
+    const g = src[i + 1];
+    const b = src[i + 2];
+
+    if (keepOriginal) {
+      dst[i] = r;
+      dst[i + 1] = g;
+      dst[i + 2] = b;
+      dst[i + 3] = 255;
+      continue;
+    }
+
+    let bestIdx = 0;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let k = 0; k < NINJA_SRC_PALETTE.length; k++) {
+      const sp = NINJA_SRC_PALETTE[k];
+      const dr = r - sp[0];
+      const dg = g - sp[1];
+      const db = b - sp[2];
+      const dist = dr * dr + dg * dg + db * db;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = k;
+      }
+    }
+
+    const chosen = targets[bestIdx];
+    dst[i] = chosen[0];
+    dst[i + 1] = chosen[1];
+    dst[i + 2] = chosen[2];
+    dst[i + 3] = 255;
+  }
 }
 
 function bakeKunaiPaletteSwaps(scene: Phaser.Scene): void {
@@ -328,12 +451,10 @@ function remapKunaiPixels(
       if (lum < 55) {
         chosen = cOutline;
       } else if (y <= 8) {
-        // Upper diamond blade
         if (lum >= 200) chosen = cBladeLight;
         else if (lum >= 128) chosen = cBladeMid;
         else chosen = cBladeDark;
       } else {
-        // Handle & pommel ring
         chosen = lum >= 135 ? cWrapBright : cWrapDark;
       }
 
@@ -417,7 +538,6 @@ function clipCircleWithPixelOutline(
 }
 
 function bakeComposedTargets(scene: Phaser.Scene): void {
-  // 1. target_composed_log (48x48): warm wood mosaic ring + tree stump + sphere_wood
   bakeTargetCanvas(scene, 'target_composed_log', 48, (ctx) => {
     for (let ty = 0; ty < 3; ty++) {
       for (let tx = 0; tx < 3; tx++) {
@@ -429,7 +549,6 @@ function bakeComposedTargets(scene: Phaser.Scene): void {
     drawWholeTexture(ctx, scene, ASSET_KEYS.SPHERE_WOOD, 8, 8);
   });
 
-  // 2. target_composed_stone (48x48): dungeon stone tiles + sphere_iron + steel shield emblem
   bakeTargetCanvas(scene, 'target_composed_stone', 48, (ctx) => {
     for (let ty = 0; ty < 3; ty++) {
       for (let tx = 0; tx < 3; tx++) {
@@ -441,7 +560,6 @@ function bakeComposedTargets(scene: Phaser.Scene): void {
     drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_KENNEY, 12 * 8 + 6, 16, 16);
   });
 
-  // 3. target_composed_lantern (48x48): warm shrine tiles + sphere_red + gold scroll/lantern center
   bakeTargetCanvas(scene, 'target_composed_lantern', 48, (ctx) => {
     for (let ty = 0; ty < 3; ty++) {
       for (let tx = 0; tx < 3; tx++) {
@@ -453,7 +571,6 @@ function bakeComposedTargets(scene: Phaser.Scene): void {
     drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_ELEMENT, 16 * 10 + 7, 16, 16);
   });
 
-  // 4. target_composed_oni (48x48): dark moss/bamboo tiles + sphere_bamboo + mystic orb
   bakeTargetCanvas(scene, 'target_composed_oni', 48, (ctx) => {
     for (let ty = 0; ty < 48; ty += 32) {
       for (let tx = 0; tx < 48; tx += 32) {
@@ -467,15 +584,7 @@ function bakeComposedTargets(scene: Phaser.Scene): void {
 }
 
 function bakeComposedBossTargets(scene: Phaser.Scene): void {
-  const configs: Array<{
-    key: string;
-    faceKey: string;
-    sphereKey: string;
-    tileSheet: string;
-    tileIdx: number;
-    outline: string;
-    rim: string;
-  }> = [
+  const configs = [
     {
       key: BOSS_SKINS[0].textureKey,
       faceKey: ASSET_KEYS.BOSS_FACE_0,
@@ -513,11 +622,8 @@ function bakeComposedBossTargets(scene: Phaser.Scene): void {
         }
       }
       clipCircleWithPixelOutline(ctx, 64, 30.2, cfg.outline, cfg.rim);
-
-      // Stamp 4 corner spheres around boss seal
       drawWholeTexture(ctx, scene, cfg.sphereKey, 16, 16);
 
-      // Stamp real 38x38 Boss Faceset into circular center medallion
       const faceSrc = scene.textures.get(cfg.faceKey).getSourceImage() as
         | HTMLImageElement
         | HTMLCanvasElement;
@@ -550,51 +656,266 @@ function bakeTargetCanvas(
   canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
 }
 
-/**
- * Composes a 128x128 seamless nocturnal dojo/bamboo tile pattern purely from
- * vendored CC0 tilesets for parallax backgrounds across all scenes.
- */
-function bakeNocturnalBackgroundPattern(scene: Phaser.Scene): void {
-  if (scene.textures.exists(ASSET_KEYS.BG_DOJO_PATTERN)) return;
+function resolveTileSheetKey(sheet: 'kenney' | 'nature' | 'element' | 'dungeon'): string {
+  switch (sheet) {
+    case 'kenney':
+      return ASSET_KEYS.TILES_KENNEY;
+    case 'nature':
+      return ASSET_KEYS.TILES_NATURE;
+    case 'element':
+      return ASSET_KEYS.TILES_ELEMENT;
+    case 'dungeon':
+      return ASSET_KEYS.TILES_DUNGEON;
+  }
+}
+
+function bakeAllBackgroundPatterns(scene: Phaser.Scene): void {
   const size = 128;
-  const canvasTex = scene.textures.createCanvas(ASSET_KEYS.BG_DOJO_PATTERN, size, size);
-  if (!canvasTex) return;
-  const ctx = canvasTex.getContext();
-  ctx.imageSmoothingEnabled = false;
+  for (const bg of BACKGROUND_SKINS) {
+    if (scene.textures.exists(bg.textureKey)) continue;
+    const canvasTex = scene.textures.createCanvas(bg.textureKey, size, size);
+    if (!canvasTex) continue;
+    const ctx = canvasTex.getContext();
+    ctx.imageSmoothingEnabled = false;
 
-  // Base dark bamboo / stone floor mosaic (8x8 grid of 16x16 CC0 tiles)
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const idx = (row + col) % 3 === 0 ? 12 * 3 + 4 : 12 * 4 + 9;
-      drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_KENNEY, idx, col * 16, row * 16);
+    const primarySheetKey = resolveTileSheetKey(bg.primarySheet);
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const idx = (row + col) % 3 === 0 ? bg.baseTileA : bg.baseTileB;
+        drawSpriteSheetTile(ctx, scene, primarySheetKey, idx, col * 16, row * 16);
+      }
     }
-  }
-  // Sprinkle bamboo & stone lantern accents from Ninja Adventure tilesets
-  drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 8 + 10, 16, 16);
-  drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 9 + 10, 16, 32);
-  drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 8 + 11, 96, 64);
-  drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_NATURE, 24 * 9 + 11, 96, 80);
-  drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_ELEMENT, 16 * 3 + 6, 64, 96);
-  drawSpriteSheetTile(ctx, scene, ASSET_KEYS.TILES_ELEMENT, 16 * 4 + 6, 64, 112);
 
-  // Nocturnal contrast pass so background tiles read as deep night dojo stone
-  const bgData = ctx.getImageData(0, 0, size, size);
-  const px = bgData.data;
-  for (let i = 0; i < px.length; i += 4) {
-    if (px[i + 3] === 0) continue;
-    px[i] = Math.round(px[i] * 0.34);
-    px[i + 1] = Math.round(px[i + 1] * 0.4);
-    px[i + 2] = Math.round(px[i + 2] * 0.58);
-  }
-  ctx.putImageData(bgData, 0, 0);
+    for (const acc of bg.accents) {
+      drawSpriteSheetTile(ctx, scene, resolveTileSheetKey(acc.sheet), acc.index, acc.dx, acc.dy);
+    }
 
-  canvasTex.refresh();
-  canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    const [gr, gg, gb] = bg.gradeRgb;
+    const bgData = ctx.getImageData(0, 0, size, size);
+    const px = bgData.data;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] === 0) continue;
+      px[i] = Math.min(255, Math.round(px[i] * gr));
+      px[i + 1] = Math.min(255, Math.round(px[i + 1] * gg));
+      px[i + 2] = Math.min(255, Math.round(px[i + 2] * gb));
+    }
+    ctx.putImageData(bgData, 0, 0);
+
+    canvasTex.refresh();
+    canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+}
+
+function bakeLuckyWheelTextures(scene: Phaser.Scene): void {
+  // 1. Main 72x72 8-segment pixel-art wheel
+  bakeTargetCanvas(scene, ASSET_KEYS.UI_WHEEL_64, 72, (ctx) => {
+    const size = 72;
+    const img = ctx.createImageData(size, size);
+    const data = img.data;
+    const cx = (size - 1) * 0.5;
+    const cy = (size - 1) * 0.5;
+    const segColors = LUCKY_SPIN_CONFIG.SEGMENTS.map((s) => intColorToRgb(s.colorHex));
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.hypot(dx, dy);
+        const idx = (y * size + x) * 4;
+        if (dist > 34.5) continue;
+
+        if (dist <= 6.2) {
+          // Central gold/dark hub cap
+          const col: [number, number, number] =
+            dist > 4.8 ? [11, 14, 24] : dist < 2.5 ? [255, 243, 161] : [237, 181, 40];
+          data[idx] = col[0];
+          data[idx + 1] = col[1];
+          data[idx + 2] = col[2];
+          data[idx + 3] = 255;
+          continue;
+        }
+
+        if (dist >= 32.8) {
+          // Outer dark border
+          data[idx] = 11;
+          data[idx + 1] = 14;
+          data[idx + 2] = 24;
+          data[idx + 3] = 255;
+          continue;
+        }
+
+        if (dist >= 30.2) {
+          // Wooden gold rim with sector divider notches
+          data[idx] = 217;
+          data[idx + 1] = 152;
+          data[idx + 2] = 70;
+          data[idx + 3] = 255;
+          continue;
+        }
+
+        const cwDeg = (((Math.atan2(dy, dx) * 180) / Math.PI) + 90 + 360) % 360;
+        const shifted = (cwDeg + 22.5) % 360;
+        const segIdx = Math.floor(shifted / 45) % 8;
+        const edgeDistDeg = Math.min(shifted % 45, 45 - (shifted % 45));
+        const arcDistPx = (edgeDistDeg * Math.PI * dist) / 180;
+
+        if (arcDistPx < 0.72) {
+          data[idx] = 11;
+          data[idx + 1] = 14;
+          data[idx + 2] = 24;
+          data[idx + 3] = 255;
+        } else {
+          const [sr, sg, sb] = segColors[segIdx];
+          const shade = dist > 26.5 ? 0.78 : dist < 12 ? 1.12 : 1.0;
+          data[idx] = Math.min(255, Math.round(sr * shade));
+          data[idx + 1] = Math.min(255, Math.round(sg * shade));
+          data[idx + 2] = Math.min(255, Math.round(sb * shade));
+          data[idx + 3] = 255;
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // 2. Mini 18x18 spinning icon for MenuScene floating button
+  bakeTargetCanvas(scene, ASSET_KEYS.UI_WHEEL_MINI, 18, (ctx) => {
+    const size = 18;
+    const img = ctx.createImageData(size, size);
+    const data = img.data;
+    const cx = (size - 1) * 0.5;
+    const cy = (size - 1) * 0.5;
+    const segColors = LUCKY_SPIN_CONFIG.SEGMENTS.map((s) => intColorToRgb(s.colorHex));
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.hypot(dx, dy);
+        const idx = (y * size + x) * 4;
+        if (dist > 8.6) continue;
+        if (dist <= 2.2) {
+          data[idx] = 255;
+          data[idx + 1] = 224;
+          data[idx + 2] = 115;
+          data[idx + 3] = 255;
+        } else if (dist >= 7.2) {
+          data[idx] = 11;
+          data[idx + 1] = 14;
+          data[idx + 2] = 24;
+          data[idx + 3] = 255;
+        } else {
+          const cwDeg = (((Math.atan2(dy, dx) * 180) / Math.PI) + 90 + 360) % 360;
+          const segIdx = Math.floor(((cwDeg + 22.5) % 360) / 45) % 8;
+          const [sr, sg, sb] = segColors[segIdx];
+          data[idx] = sr;
+          data[idx + 1] = sg;
+          data[idx + 2] = sb;
+          data[idx + 3] = 255;
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // 3. Downward pointer arrow 9x9
+  bakeTargetCanvas(scene, ASSET_KEYS.UI_WHEEL_POINTER, 9, (ctx) => {
+    const rows = [
+      '#########',
+      '#GGGGGGG#',
+      ' #GGGGG# ',
+      ' #GGGGG# ',
+      '  #GGG#  ',
+      '  #GGG#  ',
+      '   #G#   ',
+      '   ###   ',
+      '         '
+    ];
+    for (let y = 0; y < 9; y++) {
+      for (let x = 0; x < 9; x++) {
+        const ch = rows[y][x];
+        if (ch === '#') {
+          ctx.fillStyle = '#0b0e18';
+          ctx.fillRect(x, y, 1, 1);
+        } else if (ch === 'G') {
+          ctx.fillStyle = y <= 2 ? '#fff3a1' : '#ffe073';
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+  });
 }
 
 function registerAnimations(scene: Phaser.Scene): void {
   const anims = scene.anims;
 
+  // Register full animation set for every baked ninja skin
+  for (const skin of NINJA_SKINS) {
+    const sheet = skin.id;
+    if (!anims.exists(`${sheet}_idle_front`)) {
+      anims.create({
+        key: `${sheet}_idle_front`,
+        frames: [
+          { key: sheet, frame: 0 },
+          { key: sheet, frame: 0 },
+          { key: sheet, frame: 4 },
+          { key: sheet, frame: 8 }
+        ],
+        frameRate: 4,
+        repeat: -1
+      });
+    }
+    if (!anims.exists(`${sheet}_idle_up`)) {
+      anims.create({
+        key: `${sheet}_idle_up`,
+        frames: [
+          { key: sheet, frame: 1 },
+          { key: sheet, frame: 1 },
+          { key: sheet, frame: 5 },
+          { key: sheet, frame: 9 }
+        ],
+        frameRate: 5,
+        repeat: -1
+      });
+    }
+    if (!anims.exists(`${sheet}_throw_up`)) {
+      anims.create({
+        key: `${sheet}_throw_up`,
+        frames: [
+          { key: sheet, frame: 17 },
+          { key: sheet, frame: 21 },
+          { key: sheet, frame: 1 }
+        ],
+        frameRate: 18,
+        repeat: 0
+      });
+    }
+    if (!anims.exists(`${sheet}_win`)) {
+      anims.create({
+        key: `${sheet}_win`,
+        frames: [
+          { key: sheet, frame: 20 },
+          { key: sheet, frame: 25 },
+          { key: sheet, frame: 21 },
+          { key: sheet, frame: 25 }
+        ],
+        frameRate: 8,
+        repeat: 1
+      });
+    }
+    if (!anims.exists(`${sheet}_fail`)) {
+      anims.create({
+        key: `${sheet}_fail`,
+        frames: [
+          { key: sheet, frame: 16 },
+          { key: sheet, frame: 24 },
+          { key: sheet, frame: 24 }
+        ],
+        frameRate: 6,
+        repeat: 0
+      });
+    }
+  }
+
+  // Legacy default animation aliases
   if (!anims.exists('ninja_idle_front')) {
     anims.create({
       key: 'ninja_idle_front',

@@ -146,6 +146,55 @@ export const ADS_CADENCE_CONFIG = {
   BANNER_SCENES: ['MenuScene', 'ShopScene', 'GameOverScene'] as readonly string[]
 } as const;
 
+export type LuckySpinRewardType = 'multiplier' | 'coins' | 'chest';
+
+export interface LuckySpinSegmentDef {
+  id: string;
+  index: number;
+  type: LuckySpinRewardType;
+  value: number;
+  label: string;
+  weight: number;
+  colorHex: number;
+  isHighTier: boolean;
+}
+
+export const LUCKY_SPIN_CONFIG = {
+  FREE_SPIN_COOLDOWN_MS: 4 * 60 * 60 * 1000,
+  MAX_DAILY_AD_SPINS: 3,
+  POST_GAMEOVER_EVERY_N: 3,
+  SEGMENTS: [
+    { id: 'spin_x2', index: 0, type: 'multiplier', value: 2, label: 'x2', weight: 350, colorHex: 0x37b887, isHighTier: false },
+    { id: 'spin_c50', index: 1, type: 'coins', value: 50, label: '50', weight: 100, colorHex: 0xf5be41, isHighTier: false },
+    { id: 'spin_x3', index: 2, type: 'multiplier', value: 3, label: 'x3', weight: 350, colorHex: 0x4888e6, isHighTier: false },
+    { id: 'spin_chest', index: 3, type: 'chest', value: 1, label: 'COFRE', weight: 90, colorHex: 0xe88b23, isHighTier: true },
+    { id: 'spin_x5', index: 4, type: 'multiplier', value: 5, label: 'x5', weight: 50, colorHex: 0x9850eb, isHighTier: false },
+    { id: 'spin_c150', index: 5, type: 'coins', value: 150, label: '150', weight: 30, colorHex: 0xff9691, isHighTier: false },
+    { id: 'spin_x10', index: 6, type: 'multiplier', value: 10, label: 'x10', weight: 15, colorHex: 0xd93644, isHighTier: true },
+    { id: 'spin_x30', index: 7, type: 'multiplier', value: 30, label: 'x30', weight: 15, colorHex: 0x59f2e6, isHighTier: true }
+  ] as readonly LuckySpinSegmentDef[]
+} as const;
+
+export function rollWeightedLuckySegment(randFn: () => number = Math.random): LuckySpinSegmentDef {
+  const segs = LUCKY_SPIN_CONFIG.SEGMENTS;
+  let totalWeight = 0;
+  for (const s of segs) totalWeight += s.weight;
+  let roll = randFn() * totalWeight;
+  for (const s of segs) {
+    roll -= s.weight;
+    if (roll < 0) return s;
+  }
+  return segs[0];
+}
+
+export const CHEST_KEY_CONFIG = {
+  KEYS_PER_SKIN: 3,
+  CHEST_KEY_REWARD: 1.0,
+  CHEST_GOLD_REWARD: 25,
+  /** Key reward fractions for 1st, 2nd, 3rd kill of each unique boss; 4th+ yields 0. */
+  BOSS_KEY_DROPS: [1.0, 0.5, 0.25] as readonly number[]
+} as const;
+
 export function getRotationPatternForLevel(level: number): RotationPattern {
   if (level <= 4) return 'constant';
   if (level <= 9) return 'accel';

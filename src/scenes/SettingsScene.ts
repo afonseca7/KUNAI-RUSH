@@ -116,6 +116,8 @@ export class SettingsScene extends Phaser.Scene {
       depth: 25,
       onClick: () => {
         const qa = adsManager.getTelemetry();
+        const curSave = saveService.get();
+        const adSpinsUsed = 3 - saveService.getRemainingDailyAdSpins();
         const stats = i18n.t('qa.stats', {
           ump: qa.umpState,
           npa: qa.npa ? 'TRUE' : 'FALSE',
@@ -124,7 +126,10 @@ export class SettingsScene extends Phaser.Scene {
           go: qa.sessionGameOvers,
           int: qa.interstitialShown,
           rew: qa.rewardedShown,
-          open: qa.appOpenShown
+          open: qa.appOpenShown,
+          adSpins: adSpinsUsed,
+          chests: curSave.pendingChests,
+          keys: `${curSave.keysWhole}+${Math.round(curSave.keysFrac * 100)}%`
         });
         this.openTextModal(i18n.t('qa.title'), stats, 'dark');
       }
@@ -156,7 +161,7 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   public update(_time: number, delta: number): void {
-    this.backdrop.bgTile.tilePositionY -= Math.min(delta, 50) * 0.004;
+    this.backdrop.bgTile.tilePositionY -= Math.min(delta, 50) * 0.004 * this.backdrop.parallaxFactor;
   }
 
   private buildToggleRow(

@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { computeViewportMetrics, type ViewportMetrics } from '../config/balance';
+import { getBackgroundSkin } from '../config/skins';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { audioService } from '../services/AudioService';
 import { hapticsService } from '../services/HapticsService';
+import { saveService } from '../services/SaveService';
 import {
   applyThemedLetterboxStyle,
   attachNocturnalAtmosphere,
@@ -328,15 +330,18 @@ export class PixelButton {
 export interface BackdropRefs {
   bgTile: Phaser.GameObjects.TileSprite;
   atmosphere: NocturnalOverlayRefs;
+  parallaxFactor: number;
 }
 
-export function createSceneBackdrop(scene: Phaser.Scene): BackdropRefs {
+export function createSceneBackdrop(scene: Phaser.Scene, bgSkinId?: string): BackdropRefs {
   const { width, height } = scene.scale;
+  const activeBgId = bgSkinId ?? saveService.get().equippedBackground;
+  const bgDef = getBackgroundSkin(activeBgId);
   const bgTile = scene.add
-    .tileSprite(width * 0.5, height * 0.5, width, height, ASSET_KEYS.BG_DOJO_PATTERN)
+    .tileSprite(width * 0.5, height * 0.5, width, height, bgDef.textureKey)
     .setDepth(0);
   const atmosphere = attachNocturnalAtmosphere(scene, 1);
-  return { bgTile, atmosphere };
+  return { bgTile, atmosphere, parallaxFactor: bgDef.parallaxFactor };
 }
 
 export interface CoinBadgeRefs {

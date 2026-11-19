@@ -1,7 +1,17 @@
 import Phaser from 'phaser';
 import { ECONOMY_CONFIG, LAYOUT_FRACTIONS } from '../config/balance';
 import { i18n, type I18nKey } from '../config/i18n';
-import { KUNAI_SKINS, TARGET_SKINS, getTargetSkin } from '../config/skins';
+import {
+  BACKGROUND_SKINS,
+  KUNAI_SKINS,
+  NINJA_SKINS,
+  getTargetSkin,
+  getTierColorHex,
+  getTierLabelKey,
+  type CosmeticCategory,
+  type RarityTier,
+  type UnlockRule
+} from '../config/skins';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { TargetWheel } from '../objects/TargetWheel';
 import { audioService } from '../services/AudioService';
@@ -20,25 +30,28 @@ import {
   type CoinBadgeRefs
 } from '../ui/UITheme';
 
-type ShopTab = 'kunais' | 'targets';
-
 export class ShopScene extends Phaser.Scene {
   private backdrop!: BackdropRefs;
   private coinBadge!: CoinBadgeRefs;
   private previewWheel!: TargetWheel;
+  private previewNinja!: Phaser.GameObjects.Sprite;
   private previewKunais: Phaser.GameObjects.Image[] = [];
 
+  private tabNinjasBg!: Phaser.GameObjects.NineSlice;
   private tabKunaisBg!: Phaser.GameObjects.NineSlice;
-  private tabTargetsBg!: Phaser.GameObjects.NineSlice;
+  private tabBgsBg!: Phaser.GameObjects.NineSlice;
+  private tierText!: PixelText;
   private itemNameText!: PixelText;
   private itemIndexText!: PixelText;
   private actionBtn!: PixelButton;
   private freeCoinsBtn!: PixelButton;
 
-  private activeTab: ShopTab = 'kunais';
+  private activeTab: CosmeticCategory = 'ninjas';
+  private ninjaCursor = 0;
   private kunaiCursor = 0;
-  private targetCursor = 0;
+  private bgCursor = 0;
   private freeCooldownTimer?: Phaser.Time.TimerEvent;
+  private parallaxSpeed = 1.0;
 
   constructor() {
     super({ key: 'ShopScene' });
@@ -50,13 +63,17 @@ export class ShopScene extends Phaser.Scene {
     this.previewKunais = [];
     void adsManager.syncBannerForScene('ShopScene');
 
+    this.ninjaCursor = Math.max(
+      0,
+      NINJA_SKINS.findIndex((n) => n.id === save.equippedNinja)
+    );
     this.kunaiCursor = Math.max(
       0,
       KUNAI_SKINS.findIndex((k) => k.id === save.equippedKunai)
     );
-    this.targetCursor = Math.max(
+    this.bgCursor = Math.max(
       0,
-      TARGET_SKINS.findIndex((t) => t.id === save.equippedTarget)
+      BACKGROUND_SKINS.findIndex((b) => b.id === save.equippedBackground)
     );
 
     this.backdrop = createSceneBackdrop(this);
@@ -82,46 +99,16 @@ export class ShopScene extends Phaser.Scene {
 
     this.coinBadge = createCoinBadge(this, w - 31, topY, save.coins, 30);
 
-    // Tabs row
-    const tabY = fracY(this, 0.155);
-    this.tabKunaisBg = this.add
-      .nineslice(Math.round(w * 0.5 - 39), tabY, ASSET_KEYS.UI_BTN_NORMAL, undefined, 72, 18, 4, 4, 2, 2)
-      .setDepth(22)
-      .setInteractive({ useHandCursor: true });
-    new PixelText(this, w * 0.5 - 39, tabY - 1, i18n.t('shop.tab_kunais'), {
-      size: 8,
-      tint: 0xf4f0e8,
-      depth: 23
-    });
+    // 3 Tabs row: Ninjas / Kunais / Fondos
+    const tabY = fracY(this, 0.145);
+    this.tabNinjasBg = this.createTab(w * 0.5 - 56, tabY, 'ninjas', i18n.t('shop.tab_ninjas'));
+    this.tabKunaisBg = this.createTab(w * 0.5, tabY, 'kunais', i18n.t('shop.tab_kunais'));
+    this.tabBgsBg = this.createTab(w * 0.5 + 56, tabY, 'backgrounds', i18n.t('shop.tab_backgrounds'));
 
-    this.tabTargetsBg = this.add
-      .nineslice(Math.round(w * 0.5 + 39), tabY, ASSET_KEYS.UI_BTN_DISABLED, undefined, 72, 18, 4, 4, 2, 2)
-      .setDepth(22)
-      .setInteractive({ useHandCursor: true });
-    new PixelText(this, w * 0.5 + 39, tabY - 1, i18n.t('shop.tab_targets'), {
-      size: 8,
-      tint: 0xf4f0e8,
-      depth: 23
-    });
-
-    this.tabKunaisBg.on('pointerup', () => {
-      audioService.playSfx('click');
-      hapticsService.light();
-      this.activeTab = 'kunais';
-      this.refreshShopView();
-    });
-
-    this.tabTargetsBg.on('pointerup', () => {
-      audioService.playSfx('click');
-      hapticsService.light();
-      this.activeTab = 'targets';
-      this.refreshShopView();
-    });
-
-    // Live Rotating Preview Wheel
-    const wheelY = fracY(this, 0.34);
+    // Live Preview Stage: animated ninja sprite + rotating kunai wheel over scrolling background
+    const wheelY = fracY(this, 0.325);
     const initialTarget = getTargetSkin(save.equippedTarget);
-    this.previewWheel = new TargetWheel(this, w * 0.5, wheelY, initialTarget.textureKey);
+    this.previewWheel = new TargetWheel(this, w * 0.5 + 16, wheelY, initialTarget.textureKey);
     this.previewWheel.configure(initialTarget.textureKey, 24, 54, 1, 'constant');
     this.previewWheel.setDepth(15);
 
@@ -136,22 +123,34 @@ export class ShopScene extends Phaser.Scene {
       this.previewKunais.push(kImg);
     }
 
-    // Selector carousel row
-    const selY = fracY(this, 0.515);
-    createNineSlicePanel(this, w * 0.5, selY, 118, 26, 'dark', 20);
-    this.itemNameText = new PixelText(this, w * 0.5, selY - 4, '', {
+    createNineSlicePanel(this, w * 0.5 - 40, wheelY, 32, 32, 'dark', 14);
+    this.previewNinja = this.add
+      .sprite(Math.round(w * 0.5 - 40), wheelY, save.equippedNinja, 0)
+      .setOrigin(0.5)
+      .setDepth(16);
+    this.previewNinja.play(`${save.equippedNinja}_idle_front`);
+
+    // Selector carousel card
+    const selY = fracY(this, 0.505);
+    createNineSlicePanel(this, w * 0.5, selY, 124, 34, 'dark', 20);
+    this.tierText = new PixelText(this, w * 0.5, selY - 10, '', {
+      size: 8,
+      tint: 0xffe073,
+      depth: 22
+    });
+    this.itemNameText = new PixelText(this, w * 0.5, selY, '', {
       size: 8,
       tint: 0xffffff,
       depth: 22
     });
-    this.itemIndexText = new PixelText(this, w * 0.5, selY + 6, '', {
+    this.itemIndexText = new PixelText(this, w * 0.5, selY + 10, '', {
       size: 8,
       tint: 0x59f2e6,
       depth: 22
     });
 
     const leftArrow = this.add
-      .image(Math.round(w * 0.5 - 72), selY, ASSET_KEYS.UI_ARROW_LEFT)
+      .image(Math.round(w * 0.5 - 74), selY, ASSET_KEYS.UI_ARROW_LEFT)
       .setDepth(24)
       .setInteractive({ useHandCursor: true });
     leftArrow.on('pointerup', () => {
@@ -159,7 +158,7 @@ export class ShopScene extends Phaser.Scene {
     });
 
     const rightArrow = this.add
-      .image(Math.round(w * 0.5 + 72), selY, ASSET_KEYS.UI_ARROW_RIGHT)
+      .image(Math.round(w * 0.5 + 74), selY, ASSET_KEYS.UI_ARROW_RIGHT)
       .setDepth(24)
       .setInteractive({ useHandCursor: true });
     rightArrow.on('pointerup', () => {
@@ -167,9 +166,9 @@ export class ShopScene extends Phaser.Scene {
     });
 
     // Primary Buy / Equip Button
-    this.actionBtn = new PixelButton(this, w * 0.5, fracY(this, 0.64), {
-      width: 132,
-      height: 24,
+    this.actionBtn = new PixelButton(this, w * 0.5, fracY(this, 0.635), {
+      width: 146,
+      height: 22,
       label: '',
       fontSize: 8,
       depth: 25,
@@ -179,7 +178,7 @@ export class ShopScene extends Phaser.Scene {
     });
 
     // +25 Free Coins Rewarded Button
-    this.freeCoinsBtn = new PixelButton(this, w * 0.5, fracY(this, 0.76), {
+    this.freeCoinsBtn = new PixelButton(this, w * 0.5, fracY(this, 0.745), {
       width: 146,
       height: 22,
       label: i18n.t('shop.free_coins'),
@@ -207,19 +206,46 @@ export class ShopScene extends Phaser.Scene {
 
   public update(_time: number, delta: number): void {
     const dt = Math.min(delta, 50);
-    this.backdrop.bgTile.tilePositionY -= dt * 0.005;
+    this.backdrop.bgTile.tilePositionY -= dt * 0.006 * this.parallaxSpeed;
     this.previewWheel.updateRotation(dt);
+  }
+
+  private createTab(
+    x: number,
+    y: number,
+    category: CosmeticCategory,
+    label: string
+  ): Phaser.GameObjects.NineSlice {
+    const bg = this.add
+      .nineslice(Math.round(x), y, ASSET_KEYS.UI_BTN_DISABLED, undefined, 52, 16, 4, 4, 2, 2)
+      .setDepth(22)
+      .setInteractive({ useHandCursor: true });
+    new PixelText(this, x, y - 1, label, {
+      size: 8,
+      tint: 0xf4f0e8,
+      depth: 23
+    });
+    bg.on('pointerup', () => {
+      audioService.playSfx('click');
+      hapticsService.light();
+      this.activeTab = category;
+      this.refreshShopView();
+    });
+    return bg;
   }
 
   private stepCursor(delta: -1 | 1): void {
     audioService.playSfx('click');
     hapticsService.light();
-    if (this.activeTab === 'kunais') {
+    if (this.activeTab === 'ninjas') {
+      const n = NINJA_SKINS.length;
+      this.ninjaCursor = (this.ninjaCursor + delta + n) % n;
+    } else if (this.activeTab === 'kunais') {
       const n = KUNAI_SKINS.length;
       this.kunaiCursor = (this.kunaiCursor + delta + n) % n;
     } else {
-      const n = TARGET_SKINS.length;
-      this.targetCursor = (this.targetCursor + delta + n) % n;
+      const n = BACKGROUND_SKINS.length;
+      this.bgCursor = (this.bgCursor + delta + n) % n;
     }
     this.refreshShopView();
   }
@@ -228,43 +254,76 @@ export class ShopScene extends Phaser.Scene {
     const save = saveService.get();
     this.coinBadge.updateCoins(save.coins);
 
+    this.tabNinjasBg.setTexture(
+      this.activeTab === 'ninjas' ? ASSET_KEYS.UI_BTN_NORMAL : ASSET_KEYS.UI_BTN_DISABLED
+    );
     this.tabKunaisBg.setTexture(
       this.activeTab === 'kunais' ? ASSET_KEYS.UI_BTN_NORMAL : ASSET_KEYS.UI_BTN_DISABLED
     );
-    this.tabTargetsBg.setTexture(
-      this.activeTab === 'targets' ? ASSET_KEYS.UI_BTN_NORMAL : ASSET_KEYS.UI_BTN_DISABLED
+    this.tabBgsBg.setTexture(
+      this.activeTab === 'backgrounds' ? ASSET_KEYS.UI_BTN_NORMAL : ASSET_KEYS.UI_BTN_DISABLED
     );
 
-    const previewKunai = KUNAI_SKINS[this.kunaiCursor];
-    const previewTarget = TARGET_SKINS[this.targetCursor];
+    const pNinja = NINJA_SKINS[this.ninjaCursor];
+    const pKunai = KUNAI_SKINS[this.kunaiCursor];
+    const pBg = BACKGROUND_SKINS[this.bgCursor];
 
-    this.previewWheel.wheelSprite.setTexture(
-      this.activeTab === 'targets'
-        ? previewTarget.textureKey
-        : getTargetSkin(save.equippedTarget).textureKey
-    );
-    const activeKunaiTex =
-      this.activeTab === 'kunais' ? previewKunai.id : save.equippedKunai;
-    for (const img of this.previewKunais) {
-      img.setTexture(activeKunaiTex);
+    const liveNinjaId = this.activeTab === 'ninjas' ? pNinja.id : save.equippedNinja;
+    const animKey = `${liveNinjaId}_idle_front`;
+    if (this.previewNinja.anims.currentAnim?.key !== animKey) {
+      this.previewNinja.setTexture(liveNinjaId, 0);
+      if (this.anims.exists(animKey)) {
+        this.previewNinja.play(animKey);
+      }
     }
 
-    if (this.activeTab === 'kunais') {
-      const def = previewKunai;
-      this.itemNameText.setText(i18n.t(def.nameKey as I18nKey));
-      this.itemIndexText.setText(`${this.kunaiCursor + 1}/${KUNAI_SKINS.length}`);
+    const liveKunaiId = this.activeTab === 'kunais' ? pKunai.id : save.equippedKunai;
+    for (const img of this.previewKunais) {
+      img.setTexture(liveKunaiId);
+    }
 
-      const owned = save.unlockedKunais.includes(def.id);
-      const equipped = save.equippedKunai === def.id;
-      this.updateActionButton(owned, equipped, def.price, save.coins);
+    const liveBgId = this.activeTab === 'backgrounds' ? pBg.id : save.equippedBackground;
+    const liveBgDef =
+      BACKGROUND_SKINS.find((b) => b.id === liveBgId) ?? BACKGROUND_SKINS[0];
+    this.backdrop.bgTile.setTexture(liveBgDef.textureKey);
+    this.parallaxSpeed = liveBgDef.parallaxFactor;
+
+    if (this.activeTab === 'ninjas') {
+      this.renderItemDetails(
+        pNinja.tier,
+        pNinja.nameKey,
+        this.ninjaCursor,
+        NINJA_SKINS.length,
+        save.unlockedNinjas.includes(pNinja.id),
+        save.equippedNinja === pNinja.id,
+        pNinja.price,
+        pNinja.unlockRule,
+        save.coins
+      );
+    } else if (this.activeTab === 'kunais') {
+      this.renderItemDetails(
+        pKunai.tier,
+        pKunai.nameKey,
+        this.kunaiCursor,
+        KUNAI_SKINS.length,
+        save.unlockedKunais.includes(pKunai.id),
+        save.equippedKunai === pKunai.id,
+        pKunai.price,
+        pKunai.unlockRule,
+        save.coins
+      );
     } else {
-      const def = previewTarget;
-      this.itemNameText.setText(i18n.t(def.nameKey as I18nKey));
-      this.itemIndexText.setText(`${this.targetCursor + 1}/${TARGET_SKINS.length}`);
-
-      const owned = save.unlockedTargets.includes(def.id);
-      const equipped = save.equippedTarget === def.id;
-      this.updateActionButton(owned, equipped, def.price, save.coins);
+      this.renderItemDetails(
+        pBg.tier,
+        pBg.nameKey,
+        this.bgCursor,
+        BACKGROUND_SKINS.length,
+        save.unlockedBackgrounds.includes(pBg.id),
+        save.equippedBackground === pBg.id,
+        pBg.price,
+        pBg.unlockRule,
+        save.coins
+      );
     }
 
     const metrics = getViewportMetrics();
@@ -272,7 +331,11 @@ export class ShopScene extends Phaser.Scene {
       scene: 'ShopScene',
       tab: this.activeTab,
       coins: save.coins,
+      gold: save.gold,
+      keysWhole: save.keysWhole,
+      equippedNinja: save.equippedNinja,
       equippedKunai: save.equippedKunai,
+      equippedBackground: save.equippedBackground,
       equippedTarget: save.equippedTarget,
       profile: metrics.profile,
       logicalW: metrics.logicalW,
@@ -281,16 +344,48 @@ export class ShopScene extends Phaser.Scene {
     };
   }
 
+  private renderItemDetails(
+    tier: RarityTier,
+    nameKey: string,
+    index: number,
+    total: number,
+    owned: boolean,
+    equipped: boolean,
+    price: number,
+    rule: UnlockRule,
+    coins: number
+  ): void {
+    this.tierText
+      .setText(i18n.t(getTierLabelKey(tier) as I18nKey))
+      .setTint(getTierColorHex(tier));
+    this.itemNameText.setText(i18n.t(nameKey as I18nKey));
+    this.itemIndexText.setText(`${index + 1}/${total}`);
+    this.updateActionButton(owned, equipped, price, rule, coins);
+  }
+
   private updateActionButton(
     owned: boolean,
     equipped: boolean,
     price: number,
+    rule: UnlockRule,
     coins: number
   ): void {
     if (equipped) {
       this.actionBtn.setLabel(i18n.t('shop.equipped')).setDisabled(true);
     } else if (owned) {
       this.actionBtn.setLabel(i18n.t('shop.equip')).setDisabled(false);
+    } else if (rule.type === 'streak') {
+      this.actionBtn
+        .setLabel(i18n.t('shop.unlock_streak', { days: rule.days }))
+        .setDisabled(true);
+    } else if (rule.type === 'level') {
+      this.actionBtn
+        .setLabel(i18n.t('shop.unlock_level', { level: rule.level }))
+        .setDisabled(true);
+    } else if (rule.type === 'score') {
+      this.actionBtn
+        .setLabel(i18n.t('shop.unlock_score', { score: rule.score }))
+        .setDisabled(true);
     } else if (coins >= price) {
       this.actionBtn.setLabel(i18n.t('shop.buy', { price })).setDisabled(false);
     } else {
@@ -300,26 +395,32 @@ export class ShopScene extends Phaser.Scene {
 
   private handleActionClick(): void {
     const save = saveService.get();
-    if (this.activeTab === 'kunais') {
+    let ok = false;
+    let owned = false;
+
+    if (this.activeTab === 'ninjas') {
+      const def = NINJA_SKINS[this.ninjaCursor];
+      owned = save.unlockedNinjas.includes(def.id);
+      ok = owned
+        ? saveService.equipNinja(def.id)
+        : saveService.unlockAndEquipNinja(def.id, def.price, def.tier);
+    } else if (this.activeTab === 'kunais') {
       const def = KUNAI_SKINS[this.kunaiCursor];
-      const owned = save.unlockedKunais.includes(def.id);
-      const ok = owned
+      owned = save.unlockedKunais.includes(def.id);
+      ok = owned
         ? saveService.equipKunai(def.id)
-        : saveService.unlockAndEquipKunai(def.id, def.price);
-      if (ok) {
-        audioService.playSfx(owned ? 'click' : 'levelup');
-        hapticsService.medium();
-      }
+        : saveService.unlockAndEquipKunai(def.id, def.price, def.tier);
     } else {
-      const def = TARGET_SKINS[this.targetCursor];
-      const owned = save.unlockedTargets.includes(def.id);
-      const ok = owned
-        ? saveService.equipTarget(def.id)
-        : saveService.unlockAndEquipTarget(def.id, def.price);
-      if (ok) {
-        audioService.playSfx(owned ? 'click' : 'levelup');
-        hapticsService.medium();
-      }
+      const def = BACKGROUND_SKINS[this.bgCursor];
+      owned = save.unlockedBackgrounds.includes(def.id);
+      ok = owned
+        ? saveService.equipBackground(def.id)
+        : saveService.unlockAndEquipBackground(def.id, def.price, def.tier);
+    }
+
+    if (ok) {
+      audioService.playSfx(owned ? 'click' : 'levelup');
+      hapticsService.medium();
     }
     this.refreshShopView();
   }
