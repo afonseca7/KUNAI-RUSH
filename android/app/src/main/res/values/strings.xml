@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kunai Rush</string>
+    <string name="title_activity_main">Kunai Rush</string>
+    <string name="package_name">com.tuestudio.kunairush</string>
+    <string name="custom_url_scheme">com.tuestudio.kunairush</string>
+</resources>
