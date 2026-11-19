@@ -1,0 +1,8 @@
+Authoritative Source: https://pixel-boy.itch.io/ninja-adventure-asset-pack
+Authors: Pixel-boy & AAA
+Official Archive: Ninja Adventure - Asset Pack.zip (itch.io upload_id 16981275, Mar 29, 2026)
+Declared License on itch.io page and internal LICENSE.txt:
+  Creative Commons Zero (CC0 1.0 Universal) - Public Domain Dedication
+  "They are released under the Creative Commons Zero (CC0) license.
+   You can use any and all of the assets found in this package in your own games,
+   even commercial ones. Attribution is not required but appreciated."
