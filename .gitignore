@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Android / Capacitor signing & local configs
+keystore.properties
+*.jks
+*.keystore
+*.p12
+local.properties
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/
+
+# Temporary working artifacts
+tmp/
+.cache/

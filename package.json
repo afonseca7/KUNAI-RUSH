@@ -1,0 +1,28 @@
+{
+  "name": "kunai-rush",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Kunai Rush — Nocturnal Ninja precision-throwing hyper-casual game in 16x16 pixel art",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.4.2",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.4",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.6"
+  }
+}
