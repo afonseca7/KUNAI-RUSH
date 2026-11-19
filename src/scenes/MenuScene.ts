@@ -5,6 +5,7 @@ import { getTargetSkin } from '../config/skins';
 import { saveService } from '../services/SaveService';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { TargetWheel } from '../objects/TargetWheel';
+import { DailyStreakModal } from '../ui/DailyStreakModal';
 import {
   PixelButton,
   PixelText,
@@ -13,13 +14,17 @@ import {
   createSceneBackdrop,
   fracY,
   getViewportMetrics,
-  type BackdropRefs
+  type BackdropRefs,
+  type CoinBadgeRefs
 } from '../ui/UITheme';
+
+let streakShownInSession = false;
 
 export class MenuScene extends Phaser.Scene {
   private backdrop!: BackdropRefs;
   private showcaseWheel!: TargetWheel;
   private mascot!: Phaser.GameObjects.Sprite;
+  private coinBadge!: CoinBadgeRefs;
   private toastText?: PixelText;
 
   constructor() {
@@ -40,7 +45,7 @@ export class MenuScene extends Phaser.Scene {
       tint: 0x9bf5c6,
       depth: 29
     });
-    createCoinBadge(this, w - 31, topY, save.coins, 29);
+    this.coinBadge = createCoinBadge(this, w - 31, topY, save.coins, 29);
 
     // Title Plaque
     const titleY = fracY(this, 0.175);
@@ -131,6 +136,13 @@ export class MenuScene extends Phaser.Scene {
       tint: 0xffe073,
       depth: 40
     }).setAlpha(0);
+
+    if (!streakShownInSession && saveService.canClaimDailyStreak().eligible) {
+      streakShownInSession = true;
+      new DailyStreakModal(this, (newCoins) => {
+        this.coinBadge.updateCoins(newCoins);
+      });
+    }
 
     const metrics = getViewportMetrics();
     (window as unknown as Record<string, unknown>).__KUNAI_STATE__ = {
