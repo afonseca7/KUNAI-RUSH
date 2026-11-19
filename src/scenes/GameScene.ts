@@ -9,6 +9,7 @@ import {
 } from '../config/balance';
 import { i18n } from '../config/i18n';
 import { BOSS_SKINS, getKunaiSkin, getTargetSkin } from '../config/skins';
+import { audioService } from '../services/AudioService';
 import { saveService } from '../services/SaveService';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { CollectiblePool } from '../objects/CollectiblePool';
@@ -364,6 +365,7 @@ export class GameScene extends Phaser.Scene {
 
     this.readyKunai.setVisible(this.kunaisLeftToThrow > 0);
     this.ninjaMascot.play('ninja_throw_up');
+    audioService.playSfx('throw');
     this.kunaiPool.spawnFlying(this.wheel.x, this.readyY, 14);
   }
 
@@ -393,6 +395,7 @@ export class GameScene extends Phaser.Scene {
       this.comboCount = 1;
     }
     this.lastStickAtMs = now;
+    audioService.playSfx('thunk', this.comboCount);
 
     const bonus = this.comboCount >= 3 ? 1 : 0;
     this.score += 1 + bonus;
@@ -421,6 +424,7 @@ export class GameScene extends Phaser.Scene {
     const total = saveService.addCoins(gain);
     this.coinBadge.updateCoins(total);
     this.particleManager.emitCoinSparkle(wx, wy);
+    audioService.playSfx('coin', this.comboCount + 1);
   }
 
   private handleWaveCleared(): void {
@@ -443,6 +447,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.currentSpec.isBoss && this.bossPhase < this.currentSpec.bossPhases) {
       this.bossPhase += 1;
+      audioService.playSfx('crack');
       triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0xffe073, 0.32, 160);
       this.showAnnouncement(i18n.t('game.phase_clear', { phase: this.bossPhase - 1 }), 0xffe073);
       this.time.delayedCall(460, () => {
@@ -461,6 +466,7 @@ export class GameScene extends Phaser.Scene {
     this.coinBadge.updateCoins(total);
 
     triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0x37b887, 0.38, 190);
+    audioService.playSfx(this.currentSpec.isBoss ? 'boss' : 'levelup');
     this.showAnnouncement(
       this.currentSpec.isBoss
         ? i18n.t('game.boss_clear', { coins: levelBonus })
@@ -486,6 +492,8 @@ export class GameScene extends Phaser.Scene {
     this.kunaiPool.spawnFailBounce(this.wheel.x, impactY);
     this.wheel.setRotationPaused(true);
     this.particleManager.emitMetalClang(this.wheel.x, impactY);
+    audioService.playSfx('clang');
+    this.time.delayedCall(90, () => audioService.playSfx('fail'));
 
     triggerScreenFlash(this, this.backdrop.atmosphere.flash, 0xd93644, 0.45, 210);
     this.cameras.main.shake(180, 0.016);

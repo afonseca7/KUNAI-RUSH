@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import Phaser from 'phaser';
+import { audioService } from '../services/AudioService';
 import { saveService } from '../services/SaveService';
 import { applyViewportToGame, bindViewportResize } from '../ui/UITheme';
 
@@ -26,6 +27,7 @@ export class BootScene extends Phaser.Scene {
     }
 
     await saveService.init();
+    audioService.bindGame(this.game);
     this.scene.start('PreloadScene');
   }
 }

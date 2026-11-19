@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { computeViewportMetrics, type ViewportMetrics } from '../config/balance';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
+import { audioService } from '../services/AudioService';
 import {
   applyThemedLetterboxStyle,
   attachNocturnalAtmosphere,
@@ -284,6 +285,7 @@ export class PixelButton {
       this.bg.setTexture(ASSET_KEYS.UI_BTN_NORMAL);
       this.labelText.setPosition(textX, this.baseLabelY);
       if (this.icon) this.icon.y = -1;
+      audioService.playSfx('click');
       this.onClickCb();
     });
 
