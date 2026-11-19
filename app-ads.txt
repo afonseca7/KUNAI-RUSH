@@ -1,0 +1,7 @@
+# app-ads.txt master template for Kunai Rush
+# IMPORTANT: AdMob requires this file at the EXACT ROOT of your developer domain:
+#   https://afonseca7.github.io/app-ads.txt
+# Subpath hosting (e.g. /KUNAI-RUSH/app-ads.txt) is NOT valid for AdMob crawlers.
+# Replace pub-0000000000000000 with your real AdMob Publisher ID before publishing.
+
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
