@@ -1,6 +1,6 @@
 # Guía de Publicación Gratuita — itch.io, Amazon Appstore & Samsung Galaxy Store
 
-Esta guía reemplaza la publicación en Google Play Store (evitando la tasa de \$25 USD) para distribuir **Kunai Rush** (`com.tuestudio.kunairush`, v1.0.0) gratis en **itch.io**, **Amazon Appstore** y **Samsung Galaxy Store** usando el APK release firmado con `kunai-rush-release.jks`.
+Esta guía reemplaza la publicación en Google Play Store (evitando la tasa de \$25 USD) para distribuir **Kunai Rush** (`com.tuestudio.kunairush`, **v1.1.0** / `versionCode 2`) gratis en **itch.io**, **Amazon Appstore** y **Samsung Galaxy Store** usando el APK release firmado con `kunai-rush-release.jks`.
 
 ---
 
@@ -14,12 +14,12 @@ Esta guía reemplaza la publicación en Google Play Store (evitando la tasa de \
 
 ### Descripción recomendada (ES / EN, copiar y pegar)
 
-> **ES**: **Kunai Rush** es un arcade ninja nocturno de precisión en 100% pixel art 16×16. Lanza kunais al ritmo de la diana giratoria sin chocar con los ya clavados, recoge monedas, supera jefes cada 5 niveles en combates de 3 fases y desbloquea 8 estilos de kunai y 4 dianas en la Tienda del Dojo.
+> **ES**: **Kunai Rush** es un arcade ninja nocturno de precisión en 100% pixel art 16×16. Lanza kunais al ritmo de la diana giratoria sin chocar con los ya clavados, supera jefes cada 5 niveles en combates de 3 fases, gira la Ruleta Shinobi, abre cofres con llaves y oro y desbloquea **26 cosméticos en 4 tiers de rareza** (8 ninjas animados, 10 kunais y 8 escenarios nocturnos) en la Tienda del Dojo.
 >
 > **Características clave**:
-> - Pixel art CC0 16×16 nítido (`NEAREST`) con escalado entero perfecto y perfil nocturno.
-> - Niveles garantizados matemáticamente (24 slots discretos de 15°) y jefes cada 5 niveles.
-> - 8 kunais desbloqueables, 4 dianas compuestas y racha diaria de recompensas.
+> - Pixel art CC0 16×16 nítido (`NEAREST`) con escalado entero perfecto y 8 escenarios nocturnos con parallax.
+> - Niveles garantizados matemáticamente (24 slots discretos de 15°) y jefes cada 5 niveles con gotas fraccionales de llaves (`+1.0` / `+0.5` / `+0.25`).
+> - Ruleta Shinobi de 8 premios (multiplicadores hasta `x30`, monedas y cofres), sistema de Cofres/Llaves/Oro con canje por skins superiores, racha diaria y 26 cosméticos.
 > - Bilingüe Español / Inglés, audio arcade y vibración háptica.
 
 ---
@@ -93,7 +93,7 @@ Esta guía reemplaza la publicación en Google Play Store (evitando la tasa de \
    - **Default Language**: `Spanish` (añade también `English` opcionalmente).
    - **Category**: `Games` → `Arcade & Puzzle`
 3. **Binary**:
-   - Sube [`public/distribution/app-release.apk`](public/distribution/app-release.apk) (versionCode `1`, versionName `1.0.0`, firmado RSA 2048 v2).
+   - Sube [`public/distribution/app-release.apk`](public/distribution/app-release.apk) (versionCode `2`, versionName `1.1.0`, firmado RSA 2048 v2).
 4. **App Information / Graphics**:
    - **App Icon (`512×512`)**: [`public/store-assets/platform-specific/samsung/icon-512x512.png`](public/store-assets/platform-specific/samsung/icon-512x512.png)
    - **Cover / Feature Image (`1024×500`)**: [`public/store-assets/platform-specific/samsung/feature-graphic-1024x500.png`](public/store-assets/platform-specific/samsung/feature-graphic-1024x500.png)

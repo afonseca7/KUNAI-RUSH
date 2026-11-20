@@ -14,13 +14,15 @@
   - Angular collision threshold `minCollisionAngleDeg = 11°` (`Phaser.Math.Angle.ShortestBetween`) with tip-point radial impact.
   - 24 discrete `15°` perimeter slots guaranteeing `freeSlots >= kunaisToThrow` on every level — zero impossible stages.
   - Boss encounters every 5 levels with 3 consecutive phases, animated portraits, telegraph cues, hit-stop, slow-motion finishers, and progressive rotation patterns (`constant`, `accel`, `reverse`, `sinusoidal`).
-- **Progression, Shop & Daily Streak**:
-  - **8 Kunai skins** baked cleanly via pixel-by-pixel palette swaps on the lossless 90° CCW vertical CC0 kunai sprite.
-  - **4 Composed 48×48 targets** (`Madera`, `Piedra`, `Farol`, `Máscara Oni`) + **3 Composed 64×64 bosses**.
-  - 4-day Daily Streak reward cycle (`+10`, `+15`, `+25`, `+40` coins), Spanish/English localization (`ES` default) with full `ñ Ñ á é í ó ú ü ¡ ¿` bitmap glyphs, synthesized procedural Web Audio SFX (`AudioService`), and native haptics (`HapticsService`).
+- **Progression, Expanded Dojo Shop, Lucky Spin & Chests (`v1.1.0`)**:
+  - **26 Shop Cosmetics across 4 Rarity Tiers** (`Common`, `Rare`, `Epic`, `Legendary`): **8 Ninja skins** (animated spritesheet palette swaps), **10 Kunai skins** (vertical 90° CCW CC0 palette swaps), and **8 Nocturnal Backgrounds** (composed tilemaps with parallax), plus **4 Composed 48×48 targets** and **3 Composed 64×64 bosses**.
+  - **3-Tab Shop UI (`NINJAS` / `KUNAIS` / `FONDOS`)** with live preview, coin scaling by tier, persistent equips, achievement unlocks per category (`streak ≥ 3`, `level ≥ 5`, `score ≥ 25`), and `SaveService` `v1 → v2` lossless migration.
+  - **Lucky Spin (`Ruleta Shinobi`)**: 8-segment weighted wheel (`x2, x3, x5, x10, x30`, `50/150` coins, `COFRE`), pre-spin weighted RNG, 4h free cooldown + up to `3/day` rewarded ad spins (`lucky_spin`), menu floating wheel + post-GameOver `1-in-3` offer, and next-run multipliers.
+  - **Chests, Fractional Keys & Gold**: Earn key fractions (`0.00–1.00`) from Boss kills (`+1.0` 1st, `+0.5` 2nd, `+0.25` 3rd, `0` 4th+ per individual boss) and chests (`+1` key + `+25 Gold`), redeem every `3` keys for a random higher-tier cosmetic, protected by the **no-double-ad** rule and **"llave en el aire" loss-aversion** confirmation modal.
+  - 4-day Daily Streak reward cycle (`+10`, `+15`, `+25`, `+40` coins), Spanish/English localization (`ES` default) with full `ñ Ñ á é í ó ú ü ¡ ¿` bitmap glyphs, procedural Web Audio SFX (`AudioService`), and native haptics (`HapticsService`).
 - **Dual AdMob + UMP Monetization Architecture**:
   - `NativeAdMobAdapter` (Capacitor `@capacitor-community/admob` v8 + UMP Consent) on Android + interactive `WebMockAdsAdapter` in browser dev/QA.
-  - Non-intrusive cadence: Banner only in `MenuScene` / `ShopScene` / `GameOverScene` (auto-hidden during fullscreen ads), Interstitial after `sessionGameOvers > 2` on odd game overs with `60s` cooldown, Rewarded ads for Revive (`1×/run`), `×2 Coins`, and Shop `+25 Coins` (`180s` cooldown), plus App Open (`appLaunchCount >= 2`, `4s` timeout).
+  - Non-intrusive cadence: Banner only in `MenuScene` / `ShopScene` / `GameOverScene` (auto-hidden during fullscreen ads), Interstitial after `sessionGameOvers > 2` on odd game overs with `60s` cooldown, Rewarded ads for Revive (`1×/run`), `×2 Coins`, Shop `+25 Coins` (`180s` cooldown), `lucky_spin` (`3/day`), and `open_chest` (skipped when `lastKeyFromAd=true`), plus App Open (`appLaunchCount >= 2`, `4s` timeout).
 
 ---
 
@@ -36,7 +38,7 @@
 │   ├── objects/                    # AssetPipeline, EffectsFactory, TargetWheel, KunaiPool, CollectiblePool, ParticleManager
 │   ├── scenes/                     # Boot, Preload, Menu, Game, GameOver, Shop, Settings
 │   ├── services/                   # SaveService, AudioService, HapticsService, ads/ (IAdsService, AdsManager, Native & WebMock)
-│   └── ui/                         # UITheme (pixel 9-slice, BitmapText buttons), DailyStreakModal
+│   └── ui/                         # UITheme (pixel 9-slice, BitmapText), DailyStreakModal, LuckySpinModal, ChestModal
 ├── android/                        # Capacitor 8 Android project (com.tuestudio.kunairush, compileSdk=36, targetSdk=36, minSdk=24)
 ├── public/store-assets/            # Play Store icon-512.png, feature-1024x500.png & 400x800 screenshots
 ├── privacy.html                    # Bilingual ES/EN privacy policy
