@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ECONOMY_CONFIG, LAYOUT_FRACTIONS } from '../config/balance';
+import { CHEST_KEY_CONFIG, ECONOMY_CONFIG, LAYOUT_FRACTIONS } from '../config/balance';
 import { i18n, type I18nKey } from '../config/i18n';
 import {
   BACKGROUND_SKINS,
@@ -18,6 +18,7 @@ import { audioService } from '../services/AudioService';
 import { hapticsService } from '../services/HapticsService';
 import { saveService } from '../services/SaveService';
 import { adsManager } from '../services/ads/AdsManager';
+import { ChestModal } from '../ui/ChestModal';
 import {
   PixelButton,
   PixelText,
@@ -45,6 +46,7 @@ export class ShopScene extends Phaser.Scene {
   private itemIndexText!: PixelText;
   private actionBtn!: PixelButton;
   private freeCoinsBtn!: PixelButton;
+  private redeemKeysBtn!: PixelButton;
 
   private activeTab: CosmeticCategory = 'ninjas';
   private ninjaCursor = 0;
@@ -166,7 +168,7 @@ export class ShopScene extends Phaser.Scene {
     });
 
     // Primary Buy / Equip Button
-    this.actionBtn = new PixelButton(this, w * 0.5, fracY(this, 0.635), {
+    this.actionBtn = new PixelButton(this, w * 0.5, fracY(this, 0.625), {
       width: 146,
       height: 22,
       label: '',
@@ -178,7 +180,7 @@ export class ShopScene extends Phaser.Scene {
     });
 
     // +25 Free Coins Rewarded Button
-    this.freeCoinsBtn = new PixelButton(this, w * 0.5, fracY(this, 0.745), {
+    this.freeCoinsBtn = new PixelButton(this, w * 0.5, fracY(this, 0.72), {
       width: 146,
       height: 22,
       label: i18n.t('shop.free_coins'),
@@ -187,6 +189,22 @@ export class ShopScene extends Phaser.Scene {
       depth: 25,
       onClick: () => {
         void this.handleFreeCoinsClick();
+      }
+    });
+
+    // Redeem 3 Keys / Open Chest Button
+    this.redeemKeysBtn = new PixelButton(this, w * 0.5, fracY(this, 0.808), {
+      width: 146,
+      height: 18,
+      label: '',
+      fontSize: 8,
+      iconKey: ASSET_KEYS.UI_ICON_KEY,
+      depth: 25,
+      onClick: () => {
+        new ChestModal(this, {
+          onUpdated: () => this.refreshShopView(),
+          onDone: () => this.refreshShopView()
+        });
       }
     });
 
@@ -326,6 +344,12 @@ export class ShopScene extends Phaser.Scene {
       );
     }
 
+    const keyPct = Math.round(save.keysFrac * 100);
+    const haveKeysStr = `${save.keysWhole}+${keyPct}%`;
+    this.redeemKeysBtn
+      .setLabel(i18n.t('shop.redeem_keys', { need: CHEST_KEY_CONFIG.KEYS_PER_SKIN, have: haveKeysStr }))
+      .setDisabled(false);
+
     const metrics = getViewportMetrics();
     (window as unknown as Record<string, unknown>).__KUNAI_STATE__ = {
       scene: 'ShopScene',
@@ -333,6 +357,8 @@ export class ShopScene extends Phaser.Scene {
       coins: save.coins,
       gold: save.gold,
       keysWhole: save.keysWhole,
+      keysFrac: save.keysFrac,
+      pendingChests: save.pendingChests,
       equippedNinja: save.equippedNinja,
       equippedKunai: save.equippedKunai,
       equippedBackground: save.equippedBackground,

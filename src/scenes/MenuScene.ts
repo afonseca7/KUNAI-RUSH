@@ -7,6 +7,7 @@ import { adsManager } from '../services/ads/AdsManager';
 import { ASSET_KEYS } from '../objects/AssetPipeline';
 import { TargetWheel } from '../objects/TargetWheel';
 import { DailyStreakModal } from '../ui/DailyStreakModal';
+import { ChestModal } from '../ui/ChestModal';
 import { LuckySpinModal } from '../ui/LuckySpinModal';
 import {
   PixelButton,
@@ -29,6 +30,8 @@ export class MenuScene extends Phaser.Scene {
   private coinBadge!: CoinBadgeRefs;
   private spinWheelIcon?: Phaser.GameObjects.Image;
   private spinBadgeLabel?: PixelText;
+  private chestBadgeLabel?: PixelText;
+  private chestSubLabel?: PixelText;
   private multActiveText?: PixelText;
   private activeModalOpen = false;
   private toastText?: PixelText;
@@ -107,6 +110,41 @@ export class MenuScene extends Phaser.Scene {
       }
     ).setVisible(save.activeMultiplier > 1);
 
+    // Floating Chest & Keys HUD badge (left side of mascot)
+    const chestX = 26;
+    const chestY = fracY(this, 0.495);
+    const chestContainer = this.add.container(chestX, chestY).setDepth(26);
+    const chestPanel = createNineSlicePanel(this, 0, 0, 38, 38, 'dark');
+    const chestImg = this.add.image(0, -8, ASSET_KEYS.UI_CHEST_CLOSED).setOrigin(0.5);
+    this.chestBadgeLabel = new PixelText(this, 0, 6, '', {
+      size: 8,
+      tint: 0xffe073
+    });
+    this.chestSubLabel = new PixelText(this, 0, 14, '', {
+      size: 8,
+      tint: 0xd6e2f5
+    });
+    chestContainer.add([chestPanel, chestImg]);
+    this.chestBadgeLabel.addToContainer(chestContainer);
+    this.chestSubLabel.addToContainer(chestContainer);
+    chestPanel.setInteractive({ useHandCursor: true });
+    chestPanel.on('pointerup', () => {
+      if (this.activeModalOpen) return;
+      this.openChestModal();
+    });
+
+    if (save.pendingChests > 0 || saveService.canRedeemKeysForSkin()) {
+      this.tweens.add({
+        targets: chestContainer,
+        scaleX: 1.07,
+        scaleY: 1.07,
+        duration: 640,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
     // Floating Lucky Spin button (right side of mascot)
     const spinX = w - 26;
     const spinY = fracY(this, 0.495);
@@ -153,7 +191,9 @@ export class MenuScene extends Phaser.Scene {
       iconKey: save.equippedKunai,
       depth: 25,
       onClick: () => {
-        this.scene.start('GameScene', { level: 1, score: 0, runCoins: 0, revivesUsed: 0 });
+        const qaLvl = (window as unknown as Record<string, unknown>).__KUNAI_QA_START_LEVEL__;
+        const startLvl = typeof qaLvl === 'number' && qaLvl >= 1 ? Math.floor(qaLvl) : 1;
+        this.scene.start('GameScene', { level: startLvl, score: 0, runCoins: 0, revivesUsed: 0 });
       }
     });
 
@@ -225,6 +265,17 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
+  private openChestModal(): void {
+    this.activeModalOpen = true;
+    new ChestModal(this, {
+      onUpdated: () => this.refreshMenuBadges(),
+      onDone: () => {
+        this.activeModalOpen = false;
+        this.refreshMenuBadges();
+      }
+    });
+  }
+
   private refreshMenuBadges(): void {
     const next = saveService.get();
     this.coinBadge.updateCoins(next.coins);
@@ -233,6 +284,16 @@ export class MenuScene extends Phaser.Scene {
       this.spinBadgeLabel
         .setText(isFree ? i18n.t('menu.spin_free') : i18n.t('menu.spin_label'))
         .setTint(isFree ? 0x9bf5c6 : 0xffe073);
+    }
+    if (this.chestBadgeLabel && this.chestSubLabel) {
+      if (next.pendingChests > 0) {
+        this.chestBadgeLabel.setText(`${i18n.t('menu.chest_ready')}`).setTint(0xffe073);
+        this.chestSubLabel.setText(`x${next.pendingChests}`).setTint(0x9bf5c6);
+      } else {
+        const pct = Math.round(next.keysFrac * 100);
+        this.chestBadgeLabel.setText(`${next.keysWhole} LL`).setTint(next.keysWhole >= 3 ? 0x9bf5c6 : 0x59f2e6);
+        this.chestSubLabel.setText(next.keysWhole >= 3 ? 'CANJE!' : `${pct}%`).setTint(0xd6e2f5);
+      }
     }
     if (this.multActiveText) {
       this.multActiveText

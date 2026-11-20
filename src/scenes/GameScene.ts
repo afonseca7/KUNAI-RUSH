@@ -19,6 +19,7 @@ import { EFFECTS_KEYS, triggerScreenFlash } from '../objects/EffectsFactory';
 import { KunaiPool, planLevelSlots } from '../objects/KunaiPool';
 import { ParticleManager } from '../objects/ParticleManager';
 import { TargetWheel } from '../objects/TargetWheel';
+import { ChestModal } from '../ui/ChestModal';
 import {
   PixelButton,
   PixelText,
@@ -82,6 +83,7 @@ export class GameScene extends Phaser.Scene {
   private isGameOver = false;
   private readyY = 0;
   private wheelCenterY = 0;
+  private wheelAngularVelDeg = 0;
   private runMultiplier = 1;
   private equippedKunaiId = 'kunai_iron';
   private equippedNinjaId = 'ninja_shadow';
@@ -171,15 +173,23 @@ export class GameScene extends Phaser.Scene {
     // Subtle nocturnal parallax
     this.backdrop.bgTile.tilePositionY -= clampedDelta * 0.008 * this.backdrop.parallaxFactor;
 
-    if (this.isPaused) return;
+    if (this.isPaused) {
+      this.publishQaSnapshot();
+      return;
+    }
 
     const scaledDelta = clampedDelta * this.time.timeScale;
     this.kunaiPool.updateBouncing(scaledDelta);
     this.particleManager.update(scaledDelta);
 
     if (!this.isGameOver) {
+      const prevAngle = this.wheel.angle;
       this.wheel.updateRotation(scaledDelta);
       this.collectiblePool.syncWorldOrientation(this.wheel.angle);
+      if (scaledDelta > 0) {
+        const dAngle = Phaser.Math.Angle.ShortestBetween(prevAngle, this.wheel.angle);
+        this.wheelAngularVelDeg = (dAngle / scaledDelta) * 1000;
+      }
     }
 
     const flying = this.kunaiPool.getFlying();
@@ -206,6 +216,8 @@ export class GameScene extends Phaser.Scene {
         this.resolveImpact();
       }
     }
+
+    this.publishQaSnapshot();
   }
 
   private buildHud(w: number, _h: number, totalCoins: number): void {
@@ -501,6 +513,42 @@ export class GameScene extends Phaser.Scene {
       0x9bf5c6
     );
 
+    if (this.currentSpec.isBoss) {
+      const bossDef = BOSS_SKINS[this.currentSpec.bossIndex];
+      const keyDrop = saveService.recordBossDefeatAndGetKeyDrop(bossDef.id);
+      if (keyDrop > 0) {
+        const curSave = saveService.get();
+        if (curSave.pendingChests > 0) {
+          // "Llave en el aire" loss aversion: must open pending chest now or confirm losing this key
+          saveService.setInFlightKey(keyDrop);
+          adsManager.syncQaSnapshot(`in_flight_key:${bossDef.id}:${keyDrop}`);
+          this.isPaused = true;
+          this.time.delayedCall(340, () => {
+            if (!this.scene.isActive()) return;
+            new ChestModal(this, {
+              onDone: () => {
+                this.isPaused = false;
+                if (!this.scene.isActive()) return;
+                this.level += 1;
+                this.bossPhase = 1;
+                this.startWave(this.level, this.bossPhase);
+              }
+            });
+          });
+          return;
+        }
+
+        saveService.addKeys(keyDrop, false);
+        adsManager.syncQaSnapshot(`boss_key_direct:${bossDef.id}:${keyDrop}`);
+        this.particleManager.emitPopup(
+          this.wheel.x,
+          this.wheel.y - 16,
+          i18n.t('game.key_gain', { amount: keyDrop }),
+          0xffe073
+        );
+      }
+    }
+
     this.level += 1;
     this.bossPhase = 1;
     this.time.delayedCall(540, () => {
@@ -736,6 +784,20 @@ export class GameScene extends Phaser.Scene {
 
   private publishQaSnapshot(): void {
     const metrics = getViewportMetrics();
+    const flyDist = Math.max(40, this.readyY - (this.wheel.y + this.wheel.getRadius() + 2));
+    const flySec = flyDist / GAMEPLAY_CONFIG.KUNAI_THROW_SPEED_PX_PER_SEC;
+    const predictAngle = Phaser.Math.Angle.WrapDegrees(
+      this.wheel.getBottomLocalAngleDeg() - this.wheelAngularVelDeg * flySec
+    );
+    const safeToThrow =
+      !this.isTransitioning &&
+      !this.isPaused &&
+      !this.isGameOver &&
+      this.kunaisLeftToThrow > 0 &&
+      this.kunaiPool.getFlying() === null &&
+      this.kunaiPool.findCollidingStuck(predictAngle) === null &&
+      this.kunaiPool.findCollidingStuck(Phaser.Math.Angle.WrapDegrees(predictAngle - 7)) === null &&
+      this.kunaiPool.findCollidingStuck(Phaser.Math.Angle.WrapDegrees(predictAngle + 7)) === null;
     (window as unknown as Record<string, unknown>).__KUNAI_STATE__ = {
       scene: 'GameScene',
       level: this.level,
@@ -745,6 +807,10 @@ export class GameScene extends Phaser.Scene {
       activeMultiplier: this.runMultiplier,
       kunaisLeft: this.kunaisLeftToThrow,
       stuckCount: this.kunaiPool.getStuckCount(),
+      safeToThrow,
+      isTransitioning: this.isTransitioning,
+      isPaused: this.isPaused,
+      isGameOver: this.isGameOver,
       profile: metrics.profile,
       logicalW: metrics.logicalW,
       logicalH: metrics.logicalH,
